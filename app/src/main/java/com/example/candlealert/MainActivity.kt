@@ -26,7 +26,7 @@ class MainActivity : AppCompatActivity() {
     private var nextDetailsView:TextView?=null
     private var ticker:Runnable?=null
 
-    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=bg;window.navigationBarColor=bg;showHome();if(android.os.Build.VERSION.SDK_INT>=33)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),9)}
+    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=bg;window.navigationBarColor=bg;showHome();Scheduler.scheduleNext(this);if(android.os.Build.VERSION.SDK_INT>=33)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),9)}
     override fun onDestroy(){ticker?.let{handler.removeCallbacks(it)};super.onDestroy()}
 
     private fun showSplash(){val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setBackgroundColor(bg)}
