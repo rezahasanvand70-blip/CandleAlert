@@ -3,8 +3,10 @@ package com.example.candlealert
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.View
+import java.util.Calendar
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -14,7 +16,7 @@ class AnalogClockView(
     private val accent: Int,
     private val primary: Int,
     private val muted: Int,
-    private val remainingSecondsProvider: () -> Long?
+    private val timeframeMinutesProvider: () -> Int
 ) : View(context) {
 
     private val face = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -22,7 +24,9 @@ class AnalogClockView(
     private val hand = Paint(Paint.ANTI_ALIAS_FLAG)
     private val center = Paint(Paint.ANTI_ALIAS_FLAG)
     private val number = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val centerText = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val digital = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ring = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ringTrack = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
         face.style = Paint.Style.FILL
@@ -31,8 +35,12 @@ class AnalogClockView(
         hand.strokeCap = Paint.Cap.ROUND
         center.style = Paint.Style.FILL
         number.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        centerText.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        centerText.textAlign = Paint.Align.CENTER
+        digital.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        digital.textAlign = Paint.Align.CENTER
+        ring.style = Paint.Style.STROKE
+        ring.strokeCap = Paint.Cap.ROUND
+        ringTrack.style = Paint.Style.STROKE
+        ringTrack.strokeCap = Paint.Cap.ROUND
         isFocusable = false
     }
 
@@ -44,17 +52,45 @@ class AnalogClockView(
         val cy = height / 2f
         val radius = size * 0.43f
 
-        face.color = 0xFF0D2643.toInt()
-        canvas.drawCircle(cx, cy, radius + 10f, face)
-        face.color = 0xFF071A30.toInt()
+        face.color = 0xFFF8FCFF.toInt()
+        canvas.drawCircle(cx, cy, radius + 15f, face)
+        face.color = 0xFFEAF6FF.toInt()
         canvas.drawCircle(cx, cy, radius, face)
 
+        // Crystal-water progress ring: one full revolution per selected timeframe.
+        val nowMs = System.currentTimeMillis()
+        val tfSeconds = timeframeMinutesProvider().coerceAtLeast(1) * 60L
+        val elapsedMs = Math.floorMod(nowMs, tfSeconds * 1000L)
+        val progress = elapsedMs.toFloat() / (tfSeconds * 1000f)
+        val ringRadius = radius + 7f
+
+        ringTrack.color = 0xFFD4EAF7.toInt()
+        ringTrack.strokeWidth = 12f
+        canvas.drawCircle(cx, cy, ringRadius, ringTrack)
+
+        ring.color = accent
+        ring.strokeWidth = 12f
+        val sweep = progress * 360f
+        canvas.drawArc(
+            RectF(
+                cx - ringRadius,
+                cy - ringRadius,
+                cx + ringRadius,
+                cy + ringRadius
+            ),
+            -90f,
+            sweep,
+            false,
+            ring
+        )
+
+        // 60 minute/second marks.
         for (i in 0 until 60) {
             val angle = Math.toRadians(i * 6.0 - 90.0)
             val outer = radius - 8f
-            val inner = if (i % 5 == 0) radius - 20f else radius - 14f
+            val inner = if (i % 5 == 0) radius - 21f else radius - 15f
             tick.color = if (i % 5 == 0) primary else muted
-            tick.alpha = if (i % 5 == 0) 220 else 105
+            tick.alpha = if (i % 5 == 0) 210 else 90
             tick.strokeWidth = if (i % 5 == 0) 3.2f else 1.4f
             canvas.drawLine(
                 cx + cos(angle).toFloat() * inner,
@@ -71,7 +107,7 @@ class AnalogClockView(
         number.alpha = 225
         for (h in 1..12) {
             val angle = Math.toRadians(h * 30.0 - 90.0)
-            val nr = radius - 34f
+            val nr = radius - 37f
             canvas.drawText(
                 h.toString(),
                 cx + cos(angle).toFloat() * nr,
@@ -80,35 +116,40 @@ class AnalogClockView(
             )
         }
 
-        val remaining = (remainingSecondsProvider() ?: 0L).coerceAtLeast(0L)
-        val minute = (remaining % 3600L) / 60f
-        val second = (remaining % 60L).toFloat()
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR)
+        val minute = cal.get(Calendar.MINUTE)
+        val second = cal.get(Calendar.SECOND)
+        val millis = cal.get(Calendar.MILLISECOND)
 
-        // Countdown timer: minute hand = remaining minutes in the current hour,
-        // second hand = remaining seconds. The hands move continuously toward zero.
-        drawHand(canvas, cx, cy, radius * 0.52f, minute * 6f - 90f, 8f, 0x66000000, 5f)
-        drawHand(canvas, cx, cy, radius * 0.72f, minute * 6f - 90f, 5f, 0x66000000, 3f)
-        drawHand(canvas, cx, cy, radius * 0.80f, second * 6f - 90f, 2.4f, 0x66000000, 1.5f)
+        val secondFloat = second + millis / 1000f
+        val minuteFloat = minute + secondFloat / 60f
+        val hourFloat = (hour % 12) + minuteFloat / 60f
 
-        drawHand(canvas, cx, cy, radius * 0.72f, minute * 6f - 90f, 5f, primary, 0f)
-        drawHand(canvas, cx, cy, radius * 0.80f, second * 6f - 90f, 2.4f, accent, 0f)
+        // Real local-time hands.
+        drawHand(canvas, cx, cy, radius * 0.50f, hourFloat * 30f - 90f, 9f, 0x22000000, 5f)
+        drawHand(canvas, cx, cy, radius * 0.70f, minuteFloat * 6f - 90f, 6f, 0x22000000, 3f)
+        drawHand(canvas, cx, cy, radius * 0.82f, secondFloat * 6f - 90f, 2.8f, 0x22000000, 1.5f)
+
+        drawHand(canvas, cx, cy, radius * 0.50f, hourFloat * 30f - 90f, 9f, primary, 0f)
+        drawHand(canvas, cx, cy, radius * 0.70f, minuteFloat * 6f - 90f, 6f, primary, 0f)
+        drawHand(canvas, cx, cy, radius * 0.82f, secondFloat * 6f - 90f, 2.8f, accent, 0f)
 
         center.color = primary
-        canvas.drawCircle(cx, cy, 7f, center)
+        canvas.drawCircle(cx, cy, 8f, center)
         center.color = accent
-        canvas.drawCircle(cx, cy, 3f, center)
+        canvas.drawCircle(cx, cy, 3.5f, center)
 
-        centerText.color = primary
-        centerText.textSize = radius * 0.16f
-        val h = remaining / 3600L
-        val m = (remaining % 3600L) / 60L
-        val s = remaining % 60L
-        val text = if (h > 0) {
-            String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", h, m, s)
-        } else {
-            String.format(java.util.Locale.getDefault(), "%02d:%02d", m, s)
-        }
-        canvas.drawText(text, cx, cy + radius * 0.28f, centerText)
+        digital.color = primary
+        digital.textSize = radius * 0.145f
+        val text = String.format(
+            java.util.Locale.getDefault(),
+            "%02d:%02d:%02d",
+            cal.get(Calendar.HOUR_OF_DAY),
+            minute,
+            second
+        )
+        canvas.drawText(text, cx, cy + radius * 0.30f, digital)
 
         postInvalidateDelayed(80)
     }
@@ -125,20 +166,21 @@ class AnalogClockView(
     ) {
         hand.color = color
         hand.strokeWidth = width
+        val radians = Math.toRadians(degrees.toDouble())
         if (shadow > 0f) {
             canvas.drawLine(
                 cx + shadow,
                 cy + shadow,
-                cx + cos(Math.toRadians(degrees.toDouble())).toFloat() * length + shadow,
-                cy + sin(Math.toRadians(degrees.toDouble())).toFloat() * length + shadow,
+                cx + cos(radians).toFloat() * length + shadow,
+                cy + sin(radians).toFloat() * length + shadow,
                 hand
             )
         } else {
             canvas.drawLine(
                 cx,
                 cy,
-                cx + cos(Math.toRadians(degrees.toDouble())).toFloat() * length,
-                cy + sin(Math.toRadians(degrees.toDouble())).toFloat() * length,
+                cx + cos(radians).toFloat() * length,
+                cy + sin(radians).toFloat() * length,
                 hand
             )
         }
