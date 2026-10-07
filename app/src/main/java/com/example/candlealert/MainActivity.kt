@@ -25,8 +25,14 @@ class MainActivity : AppCompatActivity() {
     private val cyan = Color.rgb(80, 207, 220)
     private val green = Color.rgb(30, 190, 153)
     private val red = Color.rgb(230, 88, 103)
-    private val textColor = Color.rgb(18, 48, 74)
-    private val muted = Color.rgb(105, 132, 151)
+    private val isDarkTheme get() = {
+        val r = Color.red(bg) / 255.0
+        val g = Color.green(bg) / 255.0
+        val b = Color.blue(bg) / 255.0
+        (0.2126 * r + 0.7152 * g + 0.0722 * b) < 0.48
+    }()
+    private val textColor get() = if (isDarkTheme) Color.rgb(241, 248, 255) else Color.rgb(18, 48, 74)
+    private val muted get() = if (isDarkTheme) Color.rgb(174, 201, 222) else Color.rgb(105, 132, 151)
     private val line get() = Color.parseColor(prefs.getString("theme_line", "#CDEAF8") ?: "#CDEAF8")
 
     private val handler = Handler(Looper.getMainLooper())
@@ -36,6 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
+        applyFreshInstallDefaults()
         window.statusBarColor = bg
         window.navigationBarColor = bg
         showHome()
@@ -53,7 +60,7 @@ class MainActivity : AppCompatActivity() {
     private fun base(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
+            background = waterBackground()
             setPadding(18, 14, 18, 8)
         }
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
@@ -72,18 +79,36 @@ class MainActivity : AppCompatActivity() {
         setTextColor(color)
     }
 
-    private fun rounded(c: Int, r: Float = 20f) =
-        android.graphics.drawable.GradientDrawable().apply {
-            setColor(c)
+    private fun waterBackground(): android.graphics.drawable.Drawable {
+        val top = if (isDarkTheme) Color.rgb(8, 24, 40) else Color.rgb(226, 248, 255)
+        val mid = if (isDarkTheme) Color.rgb(13, 42, 63) else Color.rgb(239, 252, 255)
+        val bottom = if (isDarkTheme) Color.rgb(7, 29, 48) else Color.rgb(250, 255, 255)
+        return android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+            intArrayOf(top, mid, bottom)
+        )
+    }
+
+    private fun rounded(c: Int, r: Float = 20f): android.graphics.drawable.GradientDrawable {
+        val base = if (isDarkTheme) Color.argb(218, Color.red(c), Color.green(c), Color.blue(c))
+                   else Color.argb(205, Color.red(c), Color.green(c), Color.blue(c))
+        val highlight = if (isDarkTheme) Color.argb(34, 255, 255, 255)
+                        else Color.argb(92, 255, 255, 255)
+        return android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+            intArrayOf(base, highlight, base)
+        ).apply {
             cornerRadius = r
-            setStroke(1, line)
+            setStroke(1, if (isDarkTheme) Color.argb(105,255,255,255) else Color.argb(155,255,255,255))
         }
+    }
 
     private fun card() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(18, 16, 18, 16)
         background = rounded(card, 20f)
-        elevation = 2f
+        elevation = 7f
+        stateListAnimator = null
     }
 
     private fun button(s: String, selected: Boolean = false) = TextView(this).apply {
@@ -172,7 +197,7 @@ class MainActivity : AppCompatActivity() {
         }
         next.addView(nextDetailsView)
 
-        val tf = prefs.getInt("tf", 5)
+        val tf = prefs.getInt("tf", 60)
         val tfText = if (tf >= 60) (tf / 60).toString() + "H" else tf.toString() + "M"
         val market = when (prefs.getInt("market", 0)) {
             0 -> "Forex"
@@ -243,7 +268,9 @@ class MainActivity : AppCompatActivity() {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, 8, 0, 2)
+            setPadding(8, 7, 8, 7)
+            background = rounded(card, 30f)
+            elevation = 10f
         }
         val icons = mapOf(
             "Home" to android.R.drawable.ic_menu_view,
@@ -254,7 +281,7 @@ class MainActivity : AppCompatActivity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                background = rounded(if (active == n.lowercase()) Color.WHITE else card2, 18f)
+                background = rounded(if (active == n.lowercase()) Color.argb(if (isDarkTheme) 150 else 225, Color.red(accent), Color.green(accent), Color.blue(accent)) else card2, 18f)
                 setPadding(4, 4, 4, 4)
             }
             val icon = ImageView(this).apply {
@@ -489,7 +516,7 @@ class MainActivity : AppCompatActivity() {
         val intensity=listOf("Soft Glass" to "#F7FCFF","Clear Glass" to "#FFFFFF","Deep Glass" to "#EAF6FF")
         intensity.forEach{(n,hx)->
             val c=card(); c.addView(label(n,17f,textColor).apply{gravity=Gravity.CENTER_VERTICAL})
-            c.setPadding(18,8,18,8); c.setOnClickListener{prefs.edit().putString("theme_card",hx).apply();showSettings()}
+            c.setPadding(18,8,18,8); c.setOnClickListener{prefs.edit().putString("theme_card",hx).apply();showThemeSettings()}
             root.addView(c,LinearLayout.LayoutParams(-1,64).apply{setMargins(0,4,0,4)})
         }
         root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
@@ -502,7 +529,7 @@ class MainActivity : AppCompatActivity() {
             "15 Minutes • M15", "30 Minutes • M30", "1 Hour     • H1", "4 Hours    • H4"
         )
         val nums = listOf(1, 3, 5, 15, 30, 60, 240)
-        wheelDialog("Timeframe", values, nums.indexOf(prefs.getInt("tf", 5)).coerceAtLeast(0)) { index ->
+        wheelDialog("Timeframe", values, nums.indexOf(prefs.getInt("tf", 60)).coerceAtLeast(0)) { index ->
             prefs.edit().putInt("tf", nums[index]).apply()
             Scheduler.scheduleNext(this)
             showSettings()
@@ -522,7 +549,7 @@ class MainActivity : AppCompatActivity() {
             items.add("After Close   •  ${formatOffset(it)}")
             configs.add(2 to it)
         }
-        val current = configs.indexOf(prefs.getInt("mode", 0) to prefs.getInt("offset", 120)).let {
+        val current = configs.indexOf(prefs.getInt("mode", 1) to prefs.getInt("offset", 0)).let {
             if (it >= 0) it else 0
         }
         wheelDialog("Alert Timing", items, current) { index ->
