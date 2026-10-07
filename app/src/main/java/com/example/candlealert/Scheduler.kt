@@ -4,9 +4,17 @@ import android.app.*
 import android.content.*
 import android.os.Build
 import java.time.*
+import java.util.concurrent.Executors
 
 object Scheduler {
+    private val executor = Executors.newSingleThreadExecutor()
+
     fun scheduleNext(c: Context) {
+        val app = c.applicationContext
+        executor.execute { scheduleNextInternal(app) }
+    }
+
+    private fun scheduleNextInternal(c: Context) {
         val p = c.getSharedPreferences("prefs", 0)
         val am = c.getSystemService(AlarmManager::class.java)
         val i = Intent(c, AlertReceiver::class.java)
