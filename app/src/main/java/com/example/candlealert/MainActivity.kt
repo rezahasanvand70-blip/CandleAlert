@@ -184,7 +184,7 @@ class MainActivity : AppCompatActivity() {
         }
         fun quickItem(title: String, value: String, click: () -> Unit): TextView {
             return TextView(this).apply {
-                text = "$" + "title" + "\n" + "$" + "value"
+                text = title + "\n" + value
                 textSize = 13f
                 setTextColor(textColor)
                 gravity = Gravity.CENTER_VERTICAL
@@ -197,7 +197,7 @@ class MainActivity : AppCompatActivity() {
         val q2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val symbol = prefs.getString("symbol", "XAUUSD") ?: "XAUUSD"
         val tfNow = prefs.getInt("tf", 60)
-        val tfLabel = if (tfNow >= 60) "$" + "{tfNow / 60}H" else "$" + "{tfNow}M"
+        val tfLabel = if (tfNow >= 60) "\${tfNow / 60}H" else "\${tfNow}M"
         val marketLabel = when (prefs.getInt("market", 0)) {
             0 -> "Forex"
             1 -> "Crypto"
