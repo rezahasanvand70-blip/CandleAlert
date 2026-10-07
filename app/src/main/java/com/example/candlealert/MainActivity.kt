@@ -15,7 +15,7 @@ class MainActivity : AppCompatActivity() {
     private val bg=Color.rgb(5,18,36);private val card=Color.rgb(9,29,55);private val card2=Color.rgb(13,38,67)
     private val green=Color.rgb(37,223,160);private val red=Color.rgb(255,70,84);private val textColor=Color.WHITE;private val muted=Color.rgb(155,174,198)
 
-    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=bg;window.navigationBarColor=bg;showSplash();if(android.os.Build.VERSION.SDK_INT>=33)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),9)}
+    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=bg;window.navigationBarColor=bg;showHome();if(android.os.Build.VERSION.SDK_INT>=33)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),9)}
 
     private fun showSplash(){val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setBackgroundColor(bg)}
         root.addView(ImageView(this).apply{setImageResource(R.drawable.app_icon)},LinearLayout.LayoutParams(150,150))
@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome(){
         val root=base();val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(ImageView(this).apply{setImageResource(R.drawable.app_icon)},LinearLayout.LayoutParams(46,46));head.addView(label("Candle",24f,textColor));head.addView(label("Alert",24f,green))
+        head.addView(label("🔔",28f,textColor),LinearLayout.LayoutParams(46,46));head.addView(label("Candle",24f,textColor));head.addView(label("Alert",24f,green))
         val gear=label("⚙",25f,textColor).apply{gravity=Gravity.CENTER};head.addView(gear,LinearLayout.LayoutParams(0,52).apply{weight=1f});gear.setOnClickListener{showSettings()};root.addView(head)
         val status=card();val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
         row.addView(label("●",25f,if(prefs.getBoolean("enabled",true))green else red));row.addView(label(if(prefs.getBoolean("enabled",true))"  Monitoring" else "  Alerts paused",19f,textColor),LinearLayout.LayoutParams(0,50).apply{weight=1f})
