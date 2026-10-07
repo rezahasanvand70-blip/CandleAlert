@@ -42,12 +42,25 @@ class AlertReceiver : BroadcastReceiver() {
         // Use a guaranteed system notification icon. A malformed custom icon
         // can prevent the notification from being posted on some Android builds.
         val notification = NotificationCompat.Builder(c, channelId)
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            val targetPackage = p.getString("notification_app_package", "") ?: ""
+        val launchIntent = if (targetPackage.isNotEmpty()) c.packageManager.getLaunchIntentForPackage(targetPackage) else null
+        val contentIntent = (launchIntent ?: Intent(c, MainActivity::class.java)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            c,
+            2002,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle("CandleAlert")
             .setContentText("Candle close alert • Check your setup")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
+            .setContentIntent(contentPendingIntent)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
 
