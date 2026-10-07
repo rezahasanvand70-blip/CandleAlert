@@ -85,20 +85,16 @@ class MainActivity : AppCompatActivity() {
     private fun addBottom(root:LinearLayout,active:String){
         val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,2)}
         val icons=mapOf("Home" to android.R.drawable.ic_menu_view,"Alerts" to android.R.drawable.ic_popup_reminder,"Journal" to android.R.drawable.ic_menu_edit,"Settings" to android.R.drawable.ic_menu_preferences)
-        listOf("Home","Alerts","Journal","Settings").forEach{n->
+        listOf("Home","Journal","Settings").forEach{n->
             val item=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;background=rounded(if(active==n.lowercase()) card2 else card,18f);setPadding(4,3,4,3)}
             val icon=ImageView(this).apply{setImageResource(icons[n]!!);setColorFilter(if(active==n.lowercase()) green else textColor);setPadding(5,4,5,1)}
             item.addView(icon,LinearLayout.LayoutParams(42,34))
             item.addView(label(n,10f,if(active==n.lowercase()) green else muted).apply{gravity=Gravity.CENTER})
-            item.setOnClickListener{when(n){"Home"->showHome();"Alerts"->showAlerts();"Journal"->showJournal();"Settings"->showSettings()}}
+            item.setOnClickListener{when(n){"Home"->showHome();"Journal"->showJournal();"Settings"->showSettings()}}
             nav.addView(item,LinearLayout.LayoutParams(0,68).apply{weight=1f;setMargins(3,0,3,0)})
         }
         root.addView(nav,LinearLayout.LayoutParams(-1,74))
     }
-
-    private fun showAlerts(){val root=base();root.addView(label("Alerts",28f,textColor));root.addView(label("Recent candle notifications",14f,muted));val box=card();val list=prefs.getStringSet("history",emptySet())?.toList()?.sortedDescending()?:emptyList()
-        if(list.isEmpty())box.addView(label("No alerts yet.\nYour first notification will appear here.",16f,muted))else list.take(12).forEach{box.addView(label("🔔  "+it,15f,textColor).apply{setPadding(0,8,0,8)})}
-        root.addView(box,LinearLayout.LayoutParams(-1,0).apply{weight=1f;setMargins(0,16,0,16)});addBottom(root,"alerts");setContentView(root)}
 
     private fun showJournal(){val root=base();root.addView(label("Journal",28f,textColor));root.addView(label("Your CandleAlert activity",14f,muted));val b=card();b.addView(label("Trading journal",20f,textColor));b.addView(label("Trade notes and performance tracking can be added here.",14f,muted).apply{setPadding(0,10,0,0)});root.addView(b,LinearLayout.LayoutParams(-1,0).apply{weight=1f;setMargins(0,16,0,16)});addBottom(root,"journal");setContentView(root)}
 
