@@ -18,16 +18,16 @@ import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
-    private val bg = Color.rgb(238, 248, 255)
-    private val card = Color.rgb(255, 255, 255)
-    private val card2 = Color.rgb(245, 251, 255)
-    private val accent = Color.rgb(35, 143, 245)
+    private val bg get() = Color.parseColor(prefs.getString("theme_bg", "#E8F7FF") ?: "#E8F7FF")
+    private val card get() = Color.parseColor(prefs.getString("theme_card", "#F7FCFF") ?: "#F7FCFF")
+    private val card2 get() = Color.parseColor(prefs.getString("theme_card2", "#EAF8FF") ?: "#EAF8FF")
+    private val accent get() = Color.parseColor(prefs.getString("theme_accent", "#238FF5") ?: "#238FF5")
     private val cyan = Color.rgb(80, 207, 220)
     private val green = Color.rgb(30, 190, 153)
     private val red = Color.rgb(230, 88, 103)
     private val textColor = Color.rgb(18, 48, 74)
     private val muted = Color.rgb(105, 132, 151)
-    private val line = Color.rgb(218, 235, 246)
+    private val line get() = Color.parseColor(prefs.getString("theme_line", "#CDEAF8") ?: "#CDEAF8")
 
     private val handler = Handler(Looper.getMainLooper())
     private var countdownView: TextView? = null
@@ -311,10 +311,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         val options = listOf(
+            "Symbol" to "Choose the instrument",
             "Timeframe" to "Choose candle duration",
+            "Open Market" to "Set your broker candle start time",
             "Alert Timing" to "Before, at, or after close",
             "Market & Sessions" to "Forex, crypto and sessions",
             "Sleep Hours" to "Quiet period for notifications",
+            "Theme" to "Crystal Water appearance and colors",
             "Open App on Notification" to "Open your selected trading app",
             "Exact Alarm Permission" to "Allow precise background alerts"
         )
@@ -333,10 +336,13 @@ class MainActivity : AppCompatActivity() {
             c.addView(r)
             c.setOnClickListener {
                 when (name) {
+                    "Symbol" -> chooseSymbol()
                     "Timeframe" -> chooseTf()
+                    "Open Market" -> chooseOpenMarket()
                     "Alert Timing" -> chooseTiming()
                     "Market & Sessions" -> chooseMarket()
                     "Sleep Hours" -> editQuiet()
+                    "Theme" -> showThemeSettings()
                     "Open App on Notification" -> chooseNotificationApp()
                     "Exact Alarm Permission" -> if (android.os.Build.VERSION.SDK_INT >= 31) {
                         startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
@@ -385,6 +391,107 @@ class MainActivity : AppCompatActivity() {
             .create()
         dialog.show()
         dialog.window?.setBackgroundDrawable(rounded(card, 28f))
+    }
+
+    private fun chooseSymbol() {
+        val values = listOf(
+            "XAUUSD  •  Gold", "EURUSD", "GBPUSD", "USDJPY",
+            "XAGUSD  •  Silver", "USOIL  •  Oil", "BTCUSD", "ETHUSD", "Custom Symbol"
+        )
+        val current = prefs.getString("symbol", "XAUUSD") ?: "XAUUSD"
+        val idx = listOf("XAUUSD","EURUSD","GBPUSD","USDJPY","XAGUSD","USOIL","BTCUSD","ETHUSD","CUSTOM")
+            .indexOf(current).coerceAtLeast(0)
+        wheelDialog("Symbol", values, idx) { i ->
+            if (i == 8) {
+                val e = EditText(this).apply {
+                    setText(if (current == "XAUUSD") "" else current)
+                    hint = "e.g. NAS100"
+                    textSize = 18f
+                }
+                AlertDialog.Builder(this).setTitle("Custom Symbol").setView(e)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Save") { _, _ ->
+                        val v = e.text.toString().trim().uppercase(Locale.getDefault())
+                        if (v.isNotEmpty()) prefs.edit().putString("symbol", v).apply()
+                        showSettings()
+                    }.show()
+            } else {
+                val syms = listOf("XAUUSD","EURUSD","GBPUSD","USDJPY","XAGUSD","USOIL","BTCUSD","ETHUSD")
+                prefs.edit().putString("symbol", syms[i]).apply()
+                showSettings()
+            }
+        }
+    }
+
+    private fun chooseOpenMarket() {
+        val current = prefs.getString("open_market", "00:00") ?: "00:00"
+        val parts = current.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(16, 8, 16, 8)
+            background = rounded(card, 28f)
+        }
+        val hp = NumberPicker(this).apply { minValue=0; maxValue=23; value=h; wrapSelectorWheel=true; descendantFocusability=NumberPicker.FOCUS_BLOCK_DESCENDANTS }
+        val mp = NumberPicker(this).apply { minValue=0; maxValue=59; value=m; wrapSelectorWheel=true; descendantFocusability=NumberPicker.FOCUS_BLOCK_DESCENDANTS }
+        box.addView(hp, LinearLayout.LayoutParams(0,220).apply{weight=1f})
+        box.addView(label(":",28f,textColor).apply{gravity=Gravity.CENTER}, LinearLayout.LayoutParams(36,220))
+        box.addView(mp, LinearLayout.LayoutParams(0,220).apply{weight=1f})
+        AlertDialog.Builder(this).setTitle("Open Market")
+            .setMessage("Candle alignment starts from this broker open time, using your phone local time.")
+            .setView(box).setNegativeButton("Cancel",null)
+            .setPositiveButton("Done"){_,_->
+                prefs.edit().putString("open_market", String.format(Locale.getDefault(), "%02d:%02d", hp.value, mp.value)).apply()
+                Scheduler.scheduleNext(this); showSettings()
+            }.show()
+    }
+
+    private fun showThemeSettings() {
+        val root = base()
+        root.addView(label("Crystal Water", 30f, textColor))
+        root.addView(label("Customize the glass, background and accent.", 15f, muted).apply{setPadding(0,4,0,14)})
+        val presets = listOf(
+            Triple("Crystal Water", "#E8F7FF", "#F7FCFF"),
+            Triple("Arctic Glass", "#EEF6FF", "#FFFFFF"),
+            Triple("Aqua Mist", "#E6FAF8", "#F5FFFF"),
+            Triple("Midnight Glass", "#0E1B2A", "#14283A")
+        )
+        presets.forEach { (name,bgHex,cardHex) ->
+            val c=card()
+            val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+            r.addView(label(name,18f,textColor),LinearLayout.LayoutParams(0,58).apply{weight=1f})
+            r.addView(label("●",24f,Color.parseColor(if(name=="Midnight Glass")"#238FF5" else "#55CFE0")))
+            c.addView(r)
+            c.setOnClickListener {
+                val dark=name=="Midnight Glass"
+                prefs.edit().putString("theme_bg",bgHex).putString("theme_card",cardHex)
+                    .putString("theme_card2",if(dark)"#18364A" else "#EAF8FF")
+                    .putString("theme_accent",if(dark)"#58B7FF" else "#238FF5")
+                    .putString("theme_line",if(dark)"#31516A" else "#CDEAF8").apply()
+                showSettings()
+            }
+            root.addView(c,LinearLayout.LayoutParams(-1,76).apply{setMargins(0,5,0,5)})
+        }
+        val accents=listOf("Ocean Blue" to "#238FF5","Crystal Cyan" to "#42C9E8","Lagoon" to "#17BFA3","Violet Ice" to "#7C7AE8")
+        root.addView(label("ACCENT COLOR",12f,muted).apply{setPadding(4,14,0,4)})
+        accents.forEach{(n,hx)->
+            val c=card(); val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+            r.addView(label(n,17f,textColor),LinearLayout.LayoutParams(0,58).apply{weight=1f})
+            r.addView(label("●",24f,Color.parseColor(hx))); c.addView(r)
+            c.setOnClickListener{prefs.edit().putString("theme_accent",hx).apply();showSettings()}
+            root.addView(c,LinearLayout.LayoutParams(-1,72).apply{setMargins(0,4,0,4)})
+        }
+        root.addView(label("GLASS INTENSITY",12f,muted).apply{setPadding(4,14,0,4)})
+        val intensity=listOf("Soft Glass" to "#F7FCFF","Clear Glass" to "#FFFFFF","Deep Glass" to "#EAF6FF")
+        intensity.forEach{(n,hx)->
+            val c=card(); c.addView(label(n,17f,textColor).apply{gravity=Gravity.CENTER_VERTICAL})
+            c.setPadding(18,8,18,8); c.setOnClickListener{prefs.edit().putString("theme_card",hx).apply();showSettings()}
+            root.addView(c,LinearLayout.LayoutParams(-1,64).apply{setMargins(0,4,0,4)})
+        }
+        root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
+        addBottom(root,"settings"); setContentView(root)
     }
 
     private fun chooseTf() {
