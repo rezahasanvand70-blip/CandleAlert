@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 
 class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
