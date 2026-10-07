@@ -4,35 +4,12 @@ android {
     namespace = "com.example.candlealert"
     compileSdk = 35
 
-    val buildVersionCode = providers.gradleProperty("VERSION_CODE").orNull?.toIntOrNull() ?: 1
-
     defaultConfig {
         applicationId = "com.example.candlealert"
         minSdk = 26
         targetSdk = 35
-        versionCode = buildVersionCode
-        versionName = "1.$buildVersionCode"
-    }
-
-    signingConfigs {
-        create("release") {
-            val storePath = System.getenv("CANDLEALERT_KEYSTORE_PATH")
-            val storePwd = System.getenv("CANDLEALERT_STORE_PASSWORD")
-            val keyPwd = System.getenv("CANDLEALERT_KEY_PASSWORD")
-            if (!storePath.isNullOrBlank() && !storePwd.isNullOrBlank() && !keyPwd.isNullOrBlank()) {
-                storeFile = file(storePath)
-                storePassword = storePwd
-                keyAlias = "candlealert"
-                keyPassword = keyPwd
-            }
-        }
-    }
-
-    buildTypes {
-        getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-        }
+        versionCode = 1
+        versionName = "1.0"
     }
 
     compileOptions {
