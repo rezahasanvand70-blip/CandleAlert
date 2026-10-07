@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
             setColor(if (selected) accent else soft)
             cornerRadius = 22f
         }
-        minHeight = 44
+        minimumHeight = 44
     }
 
     private fun showHome() {
@@ -198,7 +198,7 @@ class MainActivity : AppCompatActivity() {
                     setColor(soft)
                     cornerRadius = 14f
                 }
-                minHeight = 68
+                minimumHeight = 68
                 isClickable = true
                 setOnClickListener { click() }
             }
