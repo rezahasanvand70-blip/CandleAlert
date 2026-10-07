@@ -413,14 +413,20 @@ class MainActivity : AppCompatActivity() {
             items.add("After Close   •  ${formatOffset(it)}")
             configs.add(2 to it)
         }
+        items.add("Custom Seconds")
+        configs.add(9 to 0)
         val current = configs.indexOf(prefs.getInt("mode", 0) to prefs.getInt("offset", 120)).let {
             if (it >= 0) it else 0
         }
         wheelDialog("Alert Timing", items, current) { index ->
             val (mode, off) = configs[index]
-            prefs.edit().putInt("mode", mode).putInt("offset", off).apply()
-            Scheduler.scheduleNext(this)
-            showSettings()
+            if (mode == 9) {
+                customTiming()
+            } else {
+                prefs.edit().putInt("mode", mode).putInt("offset", off).apply()
+                Scheduler.scheduleNext(this)
+                showSettings()
+            }
         }
     }
 
@@ -605,3 +611,4 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
     }
 }
+\n
