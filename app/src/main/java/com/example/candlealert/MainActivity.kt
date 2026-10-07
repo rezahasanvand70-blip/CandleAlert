@@ -9,6 +9,8 @@ import android.view.Gravity
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
@@ -23,7 +25,15 @@ class MainActivity : AppCompatActivity() {
         root.addView(label("Never miss the right moment",15f,muted).apply{gravity=Gravity.CENTER;setPadding(0,8,0,0)})
         setContentView(root);root.postDelayed({showHome()},700)}
 
-    private fun base()=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(bg);setPadding(18,14,18,8)}
+    private fun base(): LinearLayout {
+        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(bg);setPadding(18,14,18,8)}
+        ViewCompat.setOnApplyWindowInsetsListener(root){v,insets->
+            val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(18,14+bars.top,18,8+bars.bottom)
+            insets
+        }
+        return root
+    }
     private fun label(s:String,size:Float,color:Int)=TextView(this).apply{text=s;textSize=size;setTextColor(color)}
     private fun rounded(c:Int,r:Float=16f)=android.graphics.drawable.GradientDrawable().apply{setColor(c);cornerRadius=r}
     private fun card()=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,16,18,16);background=rounded(card2,18f)}
@@ -45,8 +55,20 @@ class MainActivity : AppCompatActivity() {
         next.addView(label("EURUSD  •  "+tfText,20f,textColor).apply{setPadding(0,8,0,0)});next.addView(label("Candle timing is scheduled automatically",13f,muted));next.addView(label("▂▃▅▄▆▃▇▅▆▇",28f,green).apply{gravity=Gravity.CENTER;setPadding(0,18,0,8)})
         root.addView(next,LinearLayout.LayoutParams(-1,0).apply{weight=1f});addBottom(root,"home");setContentView(root)}
 
-    private fun addBottom(root:LinearLayout,active:String){val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER}
-        listOf("⌂" to "Home","♧" to "Alerts","▤" to "Journal","⚙" to "Settings").forEach{(ic,n)->val b=button(ic+"\n"+n,active==n.lowercase());b.textSize=12f;b.setOnClickListener{when(n){"Home"->showHome();"Alerts"->showAlerts();"Journal"->showJournal();"Settings"->showSettings()}};nav.addView(b,LinearLayout.LayoutParams(0,58).apply{weight=1f;setMargins(3,6,3,0)})};root.addView(nav)}
+    private fun addBottom(root:LinearLayout,active:String){
+        val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,0)}
+        listOf("⌂" to "Home","🔔" to "Alerts","▤" to "Journal","⚙" to "Settings").forEach{(ic,n)->
+            val item=LinearLayout(this).apply{
+                orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER
+                background=rounded(if(active==n.lowercase()) card2 else card,18f);setPadding(2,4,2,3)
+            }
+            item.addView(label(ic,22f,if(active==n.lowercase()) green else textColor),LinearLayout.LayoutParams(-1,28))
+            item.addView(label(n,10f,if(active==n.lowercase()) green else muted).apply{gravity=Gravity.CENTER})
+            item.setOnClickListener{when(n){"Home"->showHome();"Alerts"->showAlerts();"Journal"->showJournal();"Settings"->showSettings()}}
+            nav.addView(item,LinearLayout.LayoutParams(0,62).apply{weight=1f;setMargins(3,0,3,0)})
+        }
+        root.addView(nav,LinearLayout.LayoutParams(-1,70))
+    }
 
     private fun showAlerts(){val root=base();root.addView(label("Alerts",28f,textColor));root.addView(label("Recent candle notifications",14f,muted));val box=card();val list=prefs.getStringSet("history",emptySet())?.toList()?.sortedDescending()?:emptyList()
         if(list.isEmpty())box.addView(label("No alerts yet.\nYour first notification will appear here.",16f,muted))else list.take(12).forEach{box.addView(label("🔔  "+it,15f,textColor).apply{setPadding(0,8,0,8)})}
