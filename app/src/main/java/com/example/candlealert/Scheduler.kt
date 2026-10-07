@@ -31,7 +31,7 @@ object Scheduler {
             scheduleAtNext(c, trigger, period); return
         }
         if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) return
-        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger * 1000, pi)
+        runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger * 1000, pi) }
     }
 
     private fun scheduleAtNext(c: Context, base: Long, period: Long) {
@@ -44,7 +44,7 @@ object Scheduler {
             t += period
         }
         if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) return
-        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t * 1000, pi)
+        runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t * 1000, pi) }
     }
 
     private fun marketOpen(epoch: Long, c: Context): Boolean {
