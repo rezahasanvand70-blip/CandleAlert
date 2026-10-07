@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.view.View
-import java.util.Calendar
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -14,7 +13,8 @@ class AnalogClockView(
     context: Context,
     private val accent: Int,
     private val primary: Int,
-    private val muted: Int
+    private val muted: Int,
+    private val remainingSecondsProvider: () -> Long?
 ) : View(context) {
 
     private val face = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -22,7 +22,7 @@ class AnalogClockView(
     private val hand = Paint(Paint.ANTI_ALIAS_FLAG)
     private val center = Paint(Paint.ANTI_ALIAS_FLAG)
     private val number = Paint(Paint.ANTI_ALIAS_FLAG)
-    private var lastSecond = -1
+    private val centerText = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
         face.style = Paint.Style.FILL
@@ -31,6 +31,8 @@ class AnalogClockView(
         hand.strokeCap = Paint.Cap.ROUND
         center.style = Paint.Style.FILL
         number.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        centerText.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        centerText.textAlign = Paint.Align.CENTER
         isFocusable = false
     }
 
@@ -42,13 +44,11 @@ class AnalogClockView(
         val cy = height / 2f
         val radius = size * 0.43f
 
-        // Subtle outer glow/ring.
         face.color = 0xFF0D2643.toInt()
         canvas.drawCircle(cx, cy, radius + 10f, face)
         face.color = 0xFF071A30.toInt()
         canvas.drawCircle(cx, cy, radius, face)
 
-        // Minute/hour markers.
         for (i in 0 until 60) {
             val angle = Math.toRadians(i * 6.0 - 90.0)
             val outer = radius - 8f
@@ -65,7 +65,6 @@ class AnalogClockView(
             )
         }
 
-        // Hour numbers.
         number.textAlign = Paint.Align.CENTER
         number.textSize = radius * 0.12f
         number.color = primary
@@ -81,18 +80,16 @@ class AnalogClockView(
             )
         }
 
-        val now = Calendar.getInstance()
-        val ms = now.get(Calendar.MILLISECOND)
-        val second = now.get(Calendar.SECOND) + ms / 1000f
-        val minute = now.get(Calendar.MINUTE) + second / 60f
-        val hour = (now.get(Calendar.HOUR) % 12) + minute / 60f
+        val remaining = (remainingSecondsProvider() ?: 0L).coerceAtLeast(0L)
+        val minute = (remaining % 3600L) / 60f
+        val second = (remaining % 60L).toFloat()
 
-        // Hands with a restrained shadow for depth.
-        drawHand(canvas, cx, cy, radius * 0.52f, hour * 30f - 90f, 8f, 0x66000000, 5f)
+        // Countdown timer: minute hand = remaining minutes in the current hour,
+        // second hand = remaining seconds. The hands move continuously toward zero.
+        drawHand(canvas, cx, cy, radius * 0.52f, minute * 6f - 90f, 8f, 0x66000000, 5f)
         drawHand(canvas, cx, cy, radius * 0.72f, minute * 6f - 90f, 5f, 0x66000000, 3f)
         drawHand(canvas, cx, cy, radius * 0.80f, second * 6f - 90f, 2.4f, 0x66000000, 1.5f)
 
-        drawHand(canvas, cx, cy, radius * 0.52f, hour * 30f - 90f, 8f, primary, 0f)
         drawHand(canvas, cx, cy, radius * 0.72f, minute * 6f - 90f, 5f, primary, 0f)
         drawHand(canvas, cx, cy, radius * 0.80f, second * 6f - 90f, 2.4f, accent, 0f)
 
@@ -101,12 +98,19 @@ class AnalogClockView(
         center.color = accent
         canvas.drawCircle(cx, cy, 3f, center)
 
-        if (now.get(Calendar.SECOND) != lastSecond) {
-            lastSecond = now.get(Calendar.SECOND)
-            postInvalidateDelayed(50)
+        centerText.color = primary
+        centerText.textSize = radius * 0.16f
+        val h = remaining / 3600L
+        val m = (remaining % 3600L) / 60L
+        val s = remaining % 60L
+        val text = if (h > 0) {
+            String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d", h, m, s)
         } else {
-            postInvalidateDelayed(100)
+            String.format(java.util.Locale.getDefault(), "%02d:%02d", m, s)
         }
+        canvas.drawText(text, cx, cy + radius * 0.28f, centerText)
+
+        postInvalidateDelayed(80)
     }
 
     private fun drawHand(
