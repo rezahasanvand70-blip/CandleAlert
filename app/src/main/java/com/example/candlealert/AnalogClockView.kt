@@ -5,9 +5,12 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.view.MotionEvent
 import android.view.View
+import java.time.*
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -18,16 +21,35 @@ class AnalogClockView(
     private val primary: Int,
     private val muted: Int,
     private val darkTheme: Boolean,
-    private val timeframeMinutesProvider: () -> Int
+    private val timeframeMinutesProvider: () -> Int,
+    private val onSessionToggle: (String) -> Unit
 ) : View(context) {
+
+    private data class Session(
+        val name: String,
+        val zone: String,
+        val startHour: Int,
+        val endHour: Int,
+        val color: Int
+    )
+
+    private val sessions = listOf(
+        Session("Sydney", "Australia/Sydney", 22, 7, 0xFF7C5CFC.toInt()),
+        Session("Tokyo", "Asia/Tokyo", 0, 9, 0xFF00A6A6.toInt()),
+        Session("Frankfurt", "Europe/Berlin", 7, 16, 0xFFFFA62B.toInt()),
+        Session("London", "Europe/London", 8, 17, 0xFF1687FF.toInt()),
+        Session("New York", "America/New_York", 13, 22, 0xFFEF5DA8.toInt())
+    )
+
     private val face = Paint(Paint.ANTI_ALIAS_FLAG)
     private val tick = Paint(Paint.ANTI_ALIAS_FLAG)
     private val hand = Paint(Paint.ANTI_ALIAS_FLAG)
     private val center = Paint(Paint.ANTI_ALIAS_FLAG)
     private val number = Paint(Paint.ANTI_ALIAS_FLAG)
     private val digital = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val ring = Paint(Paint.ANTI_ALIAS_FLAG)
     private val ringTrack = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val sessionPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
         tick.style = Paint.Style.STROKE
@@ -37,79 +59,95 @@ class AnalogClockView(
         number.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         digital.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         digital.textAlign = Paint.Align.CENTER
-        ring.style = Paint.Style.STROKE
-        ring.strokeCap = Paint.Cap.ROUND
         ringTrack.style = Paint.Style.STROKE
         ringTrack.strokeCap = Paint.Cap.ROUND
+        sessionPaint.style = Paint.Style.STROKE
+        sessionPaint.strokeCap = Paint.Cap.BUTT
+        labelPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        labelPaint.textAlign = Paint.Align.CENTER
         isFocusable = false
+        isClickable = true
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        // The Home screen supplies a square canvas exactly equal to the phone width.
-        // Use that full square so the outer clock edge aligns with both screen edges.
+
         val size = min(width, height).toFloat()
         val cx = width / 2f
         val cy = height / 2f
-        val radius = (size / 2f - 12f).coerceAtLeast(1f)
+        val radius = (size / 2f - 18f).coerceAtLeast(1f)
 
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF191D24.toInt() else 0xFFFFFFFF.toInt()
-        canvas.drawCircle(cx, cy, radius + 12f, face)
+        canvas.drawCircle(cx, cy, radius + 10f, face)
         face.style = Paint.Style.STROKE
         face.strokeWidth = 1.5f
         face.color = if (darkTheme) 0xFF3A414C.toInt() else 0xFFE1E6ED.toInt()
-        canvas.drawCircle(cx, cy, radius + 12f, face)
+        canvas.drawCircle(cx, cy, radius + 10f, face)
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF20252D.toInt() else 0xFFF8FAFC.toInt()
         canvas.drawCircle(cx, cy, radius, face)
 
-        val nowMs = System.currentTimeMillis()
-        val tfSeconds = timeframeMinutesProvider().coerceAtLeast(1).toLong() * 60L
-        val periodMs = tfSeconds * 1000L
-        val elapsedMs = nowMs % periodMs
-        val progress = elapsedMs.toFloat() / periodMs.toFloat()
-        val ringRadius = radius + 7f
+        // 24-hour trader clock: the outer concentric session bands are individually clickable.
+        val now = ZonedDateTime.now()
+        val selected = (context.getSharedPreferences("prefs", 0)
+            .getStringSet("sessions", sessions.map { it.name }.toSet())
+            ?: emptySet())
 
-        ringTrack.color = if (darkTheme) 0xFF3A414C.toInt() else 0xFFDDE4EC.toInt()
-        ringTrack.strokeWidth = 10f
-        canvas.drawCircle(cx, cy, ringRadius, ringTrack)
-        ring.color = accent
-        ring.strokeWidth = 10f
-        canvas.drawArc(RectF(cx - ringRadius, cy - ringRadius, cx + ringRadius, cy + ringRadius), -90f, progress * 360f, false, ring)
+        val bandBase = radius * 0.79f
+        val bandGap = radius * 0.055f
+        val bandWidth = radius * 0.035f
 
-        for (i in 0 until 60) {
-            val angle = Math.toRadians(i * 6.0 - 90.0)
-            val outer = radius - 8f
-            val inner = if (i % 5 == 0) radius - 21f else radius - 15f
-            tick.color = if (i % 5 == 0) primary else muted
-            tick.alpha = if (i % 5 == 0) 190 else 75
-            tick.strokeWidth = if (i % 5 == 0) 3f else 1.3f
-            canvas.drawLine(cx + cos(angle).toFloat() * inner, cy + sin(angle).toFloat() * inner, cx + cos(angle).toFloat() * outer, cy + sin(angle).toFloat() * outer, tick)
+        sessions.forEachIndexed { index, session ->
+            val rr = bandBase - index * bandGap
+            drawSessionBand(canvas, cx, cy, rr, bandWidth, session, selected.contains(session.name), now)
+        }
+
+        // 24 hour face.
+        for (i in 0 until 24) {
+            val angle = Math.toRadians(i * 15.0 - 90.0)
+            val outer = radius - radius * 0.07f
+            val inner = if (i % 3 == 0) radius - radius * 0.14f else radius - radius * 0.105f
+            tick.color = if (i % 3 == 0) primary else muted
+            tick.alpha = if (i % 3 == 0) 190 else 80
+            tick.strokeWidth = if (i % 3 == 0) 2.6f else 1.1f
+            canvas.drawLine(
+                cx + cos(angle).toFloat() * inner,
+                cy + sin(angle).toFloat() * inner,
+                cx + cos(angle).toFloat() * outer,
+                cy + sin(angle).toFloat() * outer,
+                tick
+            )
         }
 
         number.textAlign = Paint.Align.CENTER
-        number.textSize = radius * 0.12f
+        number.textSize = radius * 0.085f
         number.color = primary
         number.alpha = 225
-        for (h in 1..12) {
-            val angle = Math.toRadians(h * 30.0 - 90.0)
-            val nr = radius - 37f
-            canvas.drawText(h.toString(), cx + cos(angle).toFloat() * nr, cy + sin(angle).toFloat() * nr - (number.ascent() + number.descent()) / 2f, number)
+        for (h in 0 until 24) {
+            val angle = Math.toRadians(h * 15.0 - 90.0)
+            val nr = radius - radius * 0.20f
+            val label = h.toString()
+            canvas.drawText(
+                label,
+                cx + cos(angle).toFloat() * nr,
+                cy + sin(angle).toFloat() * nr - (number.ascent() + number.descent()) / 2f,
+                number
+            )
         }
 
         val cal = Calendar.getInstance()
-        val hour = cal.get(Calendar.HOUR)
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
         val minute = cal.get(Calendar.MINUTE)
         val second = cal.get(Calendar.SECOND)
         val millis = cal.get(Calendar.MILLISECOND)
         val secondFloat = second + millis / 1000f
         val minuteFloat = minute + secondFloat / 60f
-        val hourFloat = (hour % 12) + minuteFloat / 60f
+        val hourFloat = hour + minuteFloat / 60f
 
-        drawHand(canvas, cx, cy, radius * 0.50f, hourFloat * 30f - 90f, 9f, primary)
-        drawHand(canvas, cx, cy, radius * 0.70f, minuteFloat * 6f - 90f, 6f, primary)
-        drawHand(canvas, cx, cy, radius * 0.82f, secondFloat * 6f - 90f, 2.5f, accent)
+        drawHand(canvas, cx, cy, radius * 0.33f, hourFloat * 15f - 90f, 8f, primary)
+        drawHand(canvas, cx, cy, radius * 0.51f, minuteFloat * 6f - 90f, 5f, primary)
+        drawHand(canvas, cx, cy, radius * 0.64f, secondFloat * 6f - 90f, 2.2f, accent)
 
         center.color = primary
         canvas.drawCircle(cx, cy, 8f, center)
@@ -117,16 +155,160 @@ class AnalogClockView(
         canvas.drawCircle(cx, cy, 3.5f, center)
 
         digital.color = primary
-        digital.textSize = radius * 0.145f
-        val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), minute, second)
-        canvas.drawText(timeText, cx, cy + radius * 0.30f, digital)
-        postInvalidateDelayed(80)
+        digital.textSize = radius * 0.105f
+        val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
+        canvas.drawText(timeText, cx, cy + radius * 0.47f, digital)
+
+        // Small legend, deliberately secondary to the clock itself.
+        labelPaint.textSize = radius * 0.055f
+        sessions.forEachIndexed { index, session ->
+            val rr = bandBase - index * bandGap
+            val local = sessionLocalInterval(session, now)
+            val mid = midpointAngle(local.first, local.second)
+            val a = Math.toRadians(mid - 90.0)
+            labelPaint.color = if (selected.contains(session.name)) session.color else muted
+            labelPaint.alpha = if (selected.contains(session.name)) 230 else 85
+            val lr = rr
+            canvas.drawText(
+                session.name.take(1),
+                cx + cos(a).toFloat() * lr,
+                cy + sin(a).toFloat() * lr - (labelPaint.ascent() + labelPaint.descent()) / 2f,
+                labelPaint
+            )
+        }
+
+        postInvalidateDelayed(120)
     }
 
-    private fun drawHand(canvas: Canvas, cx: Float, cy: Float, length: Float, degrees: Float, width: Float, color: Int) {
+    private fun drawSessionBand(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        rr: Float,
+        width: Float,
+        session: Session,
+        enabled: Boolean,
+        now: ZonedDateTime
+    ) {
+        ringTrack.color = if (darkTheme) 0xFF39414D.toInt() else 0xFFDCE3EB.toInt()
+        ringTrack.strokeWidth = width
+        ringTrack.alpha = 220
+        canvas.drawCircle(cx, cy, rr, ringTrack)
+
+        val local = sessionLocalInterval(session, now)
+        sessionPaint.color = session.color
+        sessionPaint.strokeWidth = width
+        sessionPaint.alpha = if (enabled) 235 else 55
+
+        val startAngle = local.first * 15f - 90f
+        var sweep = (local.second - local.first) * 15f
+        if (sweep < 0f) sweep += 360f
+        canvas.drawArc(
+            RectF(cx - rr, cy - rr, cx + rr, cy + rr),
+            startAngle,
+            sweep.coerceAtMost(359.9f),
+            false,
+            sessionPaint
+        )
+    }
+
+    private fun sessionLocalInterval(session: Session, now: ZonedDateTime): Pair<Float, Float> {
+        val localZone = ZoneId.systemDefault()
+        val sourceDate = now.withZoneSameInstant(ZoneId.of(session.zone)).toLocalDate()
+
+        val startSource = ZonedDateTime.of(
+            sourceDate,
+            LocalTime.of(session.startHour, 0),
+            ZoneId.of(session.zone)
+        )
+        val endDate = if (session.endHour <= session.startHour) sourceDate.plusDays(1) else sourceDate
+        val endSource = ZonedDateTime.of(
+            endDate,
+            LocalTime.of(session.endHour, 0),
+            ZoneId.of(session.zone)
+        )
+
+        val startLocal = startSource.withZoneSameInstant(localZone)
+        val endLocal = endSource.withZoneSameInstant(localZone)
+
+        val startHour = startLocal.hour + startLocal.minute / 60f
+        val endHour = endLocal.hour + endLocal.minute / 60f
+        return Pair(startHour, endHour)
+    }
+
+    private fun midpointAngle(start: Float, end: Float): Float {
+        val span = if (end >= start) end - start else end + 24f - start
+        var mid = start + span / 2f
+        while (mid >= 24f) mid -= 24f
+        return mid
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action != MotionEvent.ACTION_UP) return true
+
+        val cx = width / 2f
+        val cy = height / 2f
+        val dx = event.x - cx
+        val dy = event.y - cy
+        val distance = kotlin.math.sqrt(dx * dx + dy * dy)
+        val size = min(width, height).toFloat()
+        val radius = (size / 2f - 18f).coerceAtLeast(1f)
+
+        val bandBase = radius * 0.79f
+        val bandGap = radius * 0.055f
+        val bandWidth = radius * 0.035f
+
+        var hitIndex = -1
+        var hitDistance = Float.MAX_VALUE
+        sessions.forEachIndexed { index, session ->
+            val rr = bandBase - index * bandGap
+            val d = kotlin.math.abs(distance - rr)
+            if (d <= bandWidth * 1.7f && d < hitDistance) {
+                hitDistance = d
+                hitIndex = index
+            }
+        }
+
+        if (hitIndex >= 0) {
+            val angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat() + 90f
+            var hour = angle / 15f
+            while (hour < 0f) hour += 24f
+            while (hour >= 24f) hour -= 24f
+
+            val session = sessions[hitIndex]
+            val now = ZonedDateTime.now()
+            val local = sessionLocalInterval(session, now)
+            if (isHourInRange(hour, local.first, local.second)) {
+                onSessionToggle(session.name)
+                return true
+            }
+        }
+        return true
+    }
+
+    private fun isHourInRange(hour: Float, start: Float, end: Float): Boolean {
+        return if (start <= end) hour >= start && hour < end
+        else hour >= start || hour < end
+    }
+
+    private fun drawHand(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        length: Float,
+        degrees: Float,
+        width: Float,
+        color: Int
+    ) {
         hand.color = color
         hand.strokeWidth = width
         val radians = Math.toRadians(degrees.toDouble())
-        canvas.drawLine(cx, cy, cx + cos(radians).toFloat() * length, cy + sin(radians).toFloat() * length, hand)
+        canvas.drawLine(
+            cx,
+            cy,
+            cx + cos(radians).toFloat() * length,
+            cy + sin(radians).toFloat() * length,
+            hand
+        )
     }
 }
