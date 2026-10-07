@@ -54,14 +54,14 @@ class AnalogClockView(
         val radius = (size / 2f - 12f).coerceAtLeast(1f)
 
         face.style = Paint.Style.FILL
-        face.color = 0xFFFFFFFF.toInt()
+        face.color = if (darkTheme) 0xFF191D24.toInt() else 0xFFFFFFFF.toInt()
         canvas.drawCircle(cx, cy, radius + 12f, face)
         face.style = Paint.Style.STROKE
         face.strokeWidth = 1.5f
-        face.color = 0xFFE1E6ED.toInt()
+        face.color = if (darkTheme) 0xFF3A414C.toInt() else 0xFFE1E6ED.toInt()
         canvas.drawCircle(cx, cy, radius + 12f, face)
         face.style = Paint.Style.FILL
-        face.color = 0xFFF8FAFC.toInt()
+        face.color = if (darkTheme) 0xFF20252D.toInt() else 0xFFF8FAFC.toInt()
         canvas.drawCircle(cx, cy, radius, face)
 
         val nowMs = System.currentTimeMillis()
@@ -71,7 +71,7 @@ class AnalogClockView(
         val progress = elapsedMs.toFloat() / periodMs.toFloat()
         val ringRadius = radius + 7f
 
-        ringTrack.color = 0xFFDDE4EC.toInt()
+        ringTrack.color = if (darkTheme) 0xFF3A414C.toInt() else 0xFFDDE4EC.toInt()
         ringTrack.strokeWidth = 10f
         canvas.drawCircle(cx, cy, ringRadius, ringTrack)
         ring.color = accent
