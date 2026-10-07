@@ -173,9 +173,9 @@ class MainActivity : AppCompatActivity() {
         val clock = AnalogClockView(this, accent, textColor, muted, isDarkTheme) {
             prefs.getInt("tf", 60).coerceAtLeast(1)
         }
-        clockCard.addView(clock, LinearLayout.LayoutParams(-1, 350))
+        clockCard.addView(clock, LinearLayout.LayoutParams(-1, 286))
         root.addView(clockCard, LinearLayout.LayoutParams(-1, -2).apply {
-            setMargins(0, 8, 0, 8)
+            setMargins(-10, 8, -10, 8)
         })
 
         // Main controls stay on Home for fast trading adjustments.
@@ -188,7 +188,9 @@ class MainActivity : AppCompatActivity() {
                 textSize = 13f
                 setTextColor(textColor)
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(16, 10, 16, 10)
+                setPadding(16, 8, 16, 8)
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                includeFontPadding = true
                 background = rounded(card2, 18f)
                 setOnClickListener { click() }
             }
@@ -203,13 +205,13 @@ class MainActivity : AppCompatActivity() {
             1 -> "Crypto"
             else -> "Forex + Crypto"
         }
-        q1.addView(quickItem("SYMBOL", symbol) { chooseSymbol(); showHome() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(0, 0, 4, 0) })
-        q1.addView(quickItem("TIMEFRAME", tfLabel) { chooseTf() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(4, 0, 0, 0) })
-        q2.addView(quickItem("MARKET", marketLabel) { chooseMarket() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(0, 6, 4, 0) })
-        q2.addView(quickItem("ALERT", timingSummary()) { chooseTiming() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(4, 6, 0, 0) })
+        q1.addView(quickItem("SYMBOL", symbol) { chooseSymbol() }, LinearLayout.LayoutParams(0, 72).apply { weight = 1f; setMargins(0, 0, 4, 0) })
+        q1.addView(quickItem("TIMEFRAME", tfLabel) { chooseTf() }, LinearLayout.LayoutParams(0, 72).apply { weight = 1f; setMargins(4, 0, 0, 0) })
+        q2.addView(quickItem("MARKET", marketLabel) { chooseMarket() }, LinearLayout.LayoutParams(0, 72).apply { weight = 1f; setMargins(0, 6, 4, 0) })
+        q2.addView(quickItem("ALERT", timingSummary()) { chooseTiming() }, LinearLayout.LayoutParams(0, 72).apply { weight = 1f; setMargins(4, 6, 0, 0) })
         quick.addView(q1)
         quick.addView(q2)
-        root.addView(quick, LinearLayout.LayoutParams(-1, 142).apply { setMargins(0, 0, 0, 8) })
+        root.addView(quick, LinearLayout.LayoutParams(-1, 151).apply { setMargins(0, 0, 0, 8) })
 
         val status = card()
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
