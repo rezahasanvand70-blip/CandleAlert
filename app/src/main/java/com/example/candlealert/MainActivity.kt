@@ -88,11 +88,11 @@ class MainActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = waterBackground()
-            setPadding(18, 14, 18, 8)
+            setPadding(10, 14, 10, 8)
         }
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(18, 14 + bars.top, 18, 8 + bars.bottom)
+            v.setPadding(10, 14 + bars.top, 10, 8 + bars.bottom)
             window.statusBarColor = bg
             window.navigationBarColor = bg
             insets
@@ -164,22 +164,52 @@ class MainActivity : AppCompatActivity() {
         gear.setOnClickListener { showSettings() }
         root.addView(head)
 
-        val clockCard = card().apply {
-            setPadding(8, 8, 8, 14)
+        val clockCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 2, 0, 4)
             background = rounded(card, 26f)
+            elevation = 7f
         }
-        val clock = AnalogClockView(this, accent, textColor, muted) {
+        val clock = AnalogClockView(this, accent, textColor, muted, isDarkTheme) {
             prefs.getInt("tf", 60).coerceAtLeast(1)
         }
-        clockCard.addView(clock, LinearLayout.LayoutParams(-1, 340))
-        clockCard.addView(label("LOCAL TIME  •  CANDLE PROGRESS", 11f, muted).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, 4, 0, 2)
-            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        })
+        clockCard.addView(clock, LinearLayout.LayoutParams(-1, 350))
         root.addView(clockCard, LinearLayout.LayoutParams(-1, -2).apply {
-            setMargins(0, 10, 0, 10)
+            setMargins(0, 8, 0, 8)
         })
+
+        // Main controls stay on Home for fast trading adjustments.
+        val quick = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        fun quickItem(title: String, value: String, click: () -> Unit): TextView {
+            return TextView(this).apply {
+                text = "$" + "title" + "\n" + "$" + "value"
+                textSize = 13f
+                setTextColor(textColor)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(16, 10, 16, 10)
+                background = rounded(card2, 18f)
+                setOnClickListener { click() }
+            }
+        }
+        val q1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val q2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val symbol = prefs.getString("symbol", "XAUUSD") ?: "XAUUSD"
+        val tfNow = prefs.getInt("tf", 60)
+        val tfLabel = if (tfNow >= 60) "$" + "{tfNow / 60}H" else "$" + "{tfNow}M"
+        val marketLabel = when (prefs.getInt("market", 0)) {
+            0 -> "Forex"
+            1 -> "Crypto"
+            else -> "Forex + Crypto"
+        }
+        q1.addView(quickItem("SYMBOL", symbol) { chooseSymbol(); showHome() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(0, 0, 4, 0) })
+        q1.addView(quickItem("TIMEFRAME", tfLabel) { chooseTf() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(4, 0, 0, 0) })
+        q2.addView(quickItem("MARKET", marketLabel) { chooseMarket() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(0, 6, 4, 0) })
+        q2.addView(quickItem("ALERT", timingSummary()) { chooseTiming() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(4, 6, 0, 0) })
+        quick.addView(q1)
+        quick.addView(q2)
+        root.addView(quick, LinearLayout.LayoutParams(-1, 142).apply { setMargins(0, 0, 0, 8) })
 
         val status = card()
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
