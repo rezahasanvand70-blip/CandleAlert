@@ -158,14 +158,14 @@ class MainActivity : AppCompatActivity() {
         header.addView(settings, LinearLayout.LayoutParams(48, 54))
         root.addView(header)
 
-        val clockPanel = panel().apply {
-            setPadding(10, 8, 10, 10)
-        }
+        // Edge-to-edge square canvas: exactly the phone width, centered on the physical screen.
+        val clockSize = resources.displayMetrics.widthPixels
         val clock = AnalogClockView(this, accent, textColor, muted, false) {
             prefs.getInt("tf", 60).coerceAtLeast(1)
         }
-        clockPanel.addView(clock, LinearLayout.LayoutParams(-1, 278))
-        root.addView(clockPanel, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 8, 0, 10) })
+        root.addView(clock, LinearLayout.LayoutParams(-1, clockSize).apply {
+            setMargins(-18, 6, -18, 8)
+        })
 
         val info = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -193,12 +193,12 @@ class MainActivity : AppCompatActivity() {
             val box = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(12, 8, 12, 8)
+                setPadding(14, 10, 14, 10)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(soft)
                     cornerRadius = 14f
                 }
-                minimumHeight = 68
+                minimumHeight = 84
                 isClickable = true
                 setOnClickListener { click() }
             }
@@ -209,8 +209,8 @@ class MainActivity : AppCompatActivity() {
             })
             return box
         }
-        controlRow.addView(control("SYMBOL", symbol) { chooseSymbol() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(0, 0, 4, 0) })
-        controlRow.addView(control("TIMEFRAME", tfLabel) { chooseTf() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(4, 0, 0, 0) })
+        controlRow.addView(control("SYMBOL", symbol) { chooseSymbol() }, LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(0, 0, 4, 0) })
+        controlRow.addView(control("TIMEFRAME", tfLabel) { chooseTf() }, LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(4, 0, 0, 0) })
         controls.addView(controlRow)
 
         val controlRow2 = LinearLayout(this).apply {
@@ -220,7 +220,7 @@ class MainActivity : AppCompatActivity() {
         controlRow2.addView(control("MARKET", market) { chooseMarket() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(0, 0, 4, 0) })
         controlRow2.addView(control("ALERT", timingSummary()) { chooseTiming() }, LinearLayout.LayoutParams(0, 68).apply { weight = 1f; setMargins(4, 0, 0, 0) })
         controls.addView(controlRow2)
-        root.addView(controls, LinearLayout.LayoutParams(-1, 180).apply { setMargins(0, 0, 0, 10) })
+        root.addView(controls, LinearLayout.LayoutParams(-1, 214).apply { setMargins(0, 0, 0, 10) })
 
         val status = panel().apply { setPadding(16, 12, 16, 12) }
         val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -401,7 +401,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            content.addView(c, LinearLayout.LayoutParams(-1, 82).apply { setMargins(0, 4, 0, 4) })
+            content.addView(c, LinearLayout.LayoutParams(-1, 92).apply { setMargins(0, 5, 0, 5) })
         }
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
