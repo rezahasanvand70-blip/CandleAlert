@@ -94,9 +94,9 @@ class AnalogClockView(
             .getStringSet("sessions", sessions.map { it.name }.toSet())
             ?: emptySet())
 
-        val bandBase = radius * 0.79f
-        val bandGap = radius * 0.055f
-        val bandWidth = radius * 0.035f
+        val bandBase = radius * 0.94f
+        val bandGap = radius * 0.043f
+        val bandWidth = radius * 0.028f
 
         sessions.forEachIndexed { index, session ->
             val rr = bandBase - index * bandGap
@@ -106,8 +106,8 @@ class AnalogClockView(
         // 24 hour face.
         for (i in 0 until 24) {
             val angle = Math.toRadians(i * 15.0 - 90.0)
-            val outer = radius - radius * 0.07f
-            val inner = if (i % 3 == 0) radius - radius * 0.14f else radius - radius * 0.105f
+            val outer = radius - radius * 0.215f
+            val inner = if (i % 3 == 0) radius - radius * 0.275f else radius - radius * 0.245f
             tick.color = if (i % 3 == 0) primary else muted
             tick.alpha = if (i % 3 == 0) 190 else 80
             tick.strokeWidth = if (i % 3 == 0) 2.6f else 1.1f
@@ -126,7 +126,7 @@ class AnalogClockView(
         number.alpha = 225
         for (h in 0 until 24) {
             val angle = Math.toRadians(h * 15.0 - 90.0)
-            val nr = radius - radius * 0.20f
+            val nr = radius * 0.64f
             val label = h.toString()
             canvas.drawText(
                 label,
@@ -254,9 +254,9 @@ class AnalogClockView(
         val size = min(width, height).toFloat()
         val radius = (size / 2f - 18f).coerceAtLeast(1f)
 
-        val bandBase = radius * 0.79f
-        val bandGap = radius * 0.055f
-        val bandWidth = radius * 0.035f
+        val bandBase = radius * 0.94f
+        val bandGap = radius * 0.043f
+        val bandWidth = radius * 0.028f
 
         var hitIndex = -1
         var hitDistance = Float.MAX_VALUE
