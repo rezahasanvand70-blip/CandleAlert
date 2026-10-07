@@ -152,10 +152,68 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome() {
         val root = base(edgeToEdge = true)
+        // Home is intentionally a real scroll surface. Nothing is squeezed just to fit
+        // one phone viewport: the alert status, clock, next alert and every control can scroll.
+        val scroll = ScrollView(this).apply {
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isFillViewport = true
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, 14)
+        }
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
 
-        // The clock is a true edge-to-edge square: its canvas is exactly the physical
-        // phone width and its center is exactly the screen center.
-        val clockSize = resources.displayMetrics.widthPixels
+        // ALERT ACTIVE — deliberately above the clock and given enough height for all text.
+        val status = panel().apply { setPadding(18, 14, 18, 14) }
+        val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val enabled = prefs.getBoolean("enabled", true)
+        statusRow.addView(text("●", 22f, if (enabled) green else red).apply {
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(32, 58))
+        val statusTexts = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        statusTexts.addView(text(if (enabled) "Alerts active" else "Alerts paused", 16f).apply {
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        statusTexts.addView(text(
+            if (enabled) "Next candle alert is scheduled." else "Turn alerts on to schedule the next candle.",
+            12f, muted
+        ).apply { setPadding(0, 5, 0, 0) })
+        statusRow.addView(statusTexts, LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        val sw = Switch(this).apply {
+            isChecked = enabled
+            minWidth = 58
+        }
+        statusRow.addView(sw, LinearLayout.LayoutParams(62, 52))
+        status.addView(statusRow)
+        sw.setOnCheckedChangeListener { _, value ->
+            prefs.edit().putBoolean("enabled", value).apply()
+            Scheduler.scheduleNext(this)
+            showHome()
+        }
+        content.addView(status, LinearLayout.LayoutParams(-1, 94).apply {
+            setMargins(0, 8, 0, 12)
+        })
+
+        // Header is compact; the clock remains the visual focus.
+        val header = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, 2)
+        }
+        val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleBox.addView(text("Candle Alert", 25f))
+        titleBox.addView(text("Candle-close notifications", 12f, muted).apply {
+            setPadding(0, 4, 0, 0)
+        })
+        header.addView(titleBox, LinearLayout.LayoutParams(-1, 58))
+        content.addView(header)
+
+        // The clock uses the available content width so it never clips against root padding.
+        val clockSize = resources.displayMetrics.widthPixels - 36
         val clock = AnalogClockView(
             this,
             accent,
@@ -173,49 +231,30 @@ class MainActivity : AppCompatActivity() {
             Scheduler.scheduleNext(this)
             showHome()
         }
-        root.addView(clock, LinearLayout.LayoutParams(-1, clockSize).apply {
-            setMargins(0, 4, 0, 2)
+        content.addView(clock, LinearLayout.LayoutParams(-1, clockSize).apply {
+            setMargins(0, 0, 0, 4)
         })
 
-        val nextMini = panel().apply { setPadding(14, 7, 14, 7) }
+        // Next alert stays directly under the clock, but remains compact.
+        val nextMini = panel().apply { setPadding(16, 8, 16, 8) }
         val nextMiniRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val nextMiniTexts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        nextMiniTexts.addView(text("NEXT ALERT", 9f, muted))
-        countdownView = text("Calculating…", 19f, accent).apply {
+        nextMiniTexts.addView(text("NEXT ALERT", 10f, muted))
+        countdownView = text("Calculating…", 20f, accent).apply {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setPadding(0, 2, 0, 0)
+            setPadding(0, 3, 0, 0)
         }
         nextMiniTexts.addView(countdownView)
-        nextDetailsView = text("Checking schedule…", 10f, muted).apply {
-            setPadding(0, 1, 0, 0)
+        nextDetailsView = text("Checking schedule…", 11f, muted).apply {
+            setPadding(0, 2, 0, 0)
         }
         nextMiniTexts.addView(nextDetailsView)
-        nextMiniRow.addView(nextMiniTexts, LinearLayout.LayoutParams(0, 62).apply { weight = 1f })
+        nextMiniRow.addView(nextMiniTexts, LinearLayout.LayoutParams(0, 66).apply { weight = 1f })
         nextMini.addView(nextMiniRow)
-        root.addView(nextMini, LinearLayout.LayoutParams(-1, 78).apply { setMargins(18, 2, 18, 6) })
+        content.addView(nextMini, LinearLayout.LayoutParams(-1, 82).apply {
+            setMargins(0, 2, 0, 18)
+        })
 
-        // Everything except the clock is kept inside a comfortable 18dp horizontal grid.
-        val scroll = ScrollView(this).apply {
-            overScrollMode = View.OVER_SCROLL_NEVER
-        }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(18, 0, 18, 12)
-        }
-        scroll.addView(content)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
-
-        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titleBox.addView(text("Candle Alert", 25f))
-        titleBox.addView(text("Candle-close notifications", 12f, muted).apply { setPadding(0, 4, 0, 0) })
-        header.addView(titleBox, LinearLayout.LayoutParams(-1, 60))
-        content.addView(header)
-
-        val info = LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(2, 0, 2, 0)
-        }
         val tf = prefs.getInt("tf", 60)
         val tfLabel = if (tf >= 60) (tf / 60).toString() + "H" else tf.toString() + "M"
         val market = when (prefs.getInt("market", 0)) {
@@ -223,26 +262,26 @@ class MainActivity : AppCompatActivity() {
             1 -> "Crypto"
             else -> "Forex + Crypto"
         }
-        info.addView(text(tfLabel, 17f).apply { typeface = Typeface.DEFAULT_BOLD })
-        info.addView(text("  •  " + market, 13f, muted),
-            LinearLayout.LayoutParams(0, 42).apply { weight = 1f; gravity = Gravity.CENTER_VERTICAL })
-        content.addView(info, LinearLayout.LayoutParams(-1, 42).apply { setMargins(0, 4, 0, 2) })
 
-        // Quick Controls are intentionally stacked vertically. The Home screen scrolls,
-        // so each control gets comfortable touch space instead of being squeezed into a grid.
-        val controls = panel().apply { setPadding(16, 14, 16, 16) }
-        controls.addView(text("QUICK CONTROLS", 12f, muted))
+        // Quick Controls are NOT inside a card anymore. Each control is a large,
+        // independent row with generous height and readable typography.
+        content.addView(text("QUICK CONTROLS", 12f, muted).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(2, 0, 0, 8)
+        })
 
         fun quickControl(labelText: String, value: String, click: () -> Unit): LinearLayout {
             val box = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(18, 12, 18, 12)
+                setPadding(20, 14, 18, 14)
                 background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(soft)
-                    cornerRadius = 16f
+                    setColor(cardColor)
+                    cornerRadius = 18f
+                    setStroke(1, line)
                 }
-                minimumHeight = 76
+                elevation = 1f
+                minimumHeight = 88
                 isClickable = true
                 setOnClickListener { click() }
             }
@@ -251,51 +290,24 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
             }
             texts.addView(text(labelText, 11f, muted))
-            texts.addView(text(value, 17f).apply {
+            texts.addView(text(value, 19f).apply {
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 5, 0, 0)
+                setPadding(0, 6, 0, 0)
             })
-            box.addView(texts, LinearLayout.LayoutParams(0, 64).apply { weight = 1f })
-            box.addView(text("›", 27f, muted).apply { gravity = Gravity.CENTER })
+            box.addView(texts, LinearLayout.LayoutParams(0, 72).apply { weight = 1f })
+            box.addView(text("›", 30f, muted).apply { gravity = Gravity.CENTER })
             return box
         }
 
         val sleepSummary = prefs.getString("quiet", "00:00-07:30") ?: "00:00-07:30"
-        controls.addView(
-            quickControl("TIMEFRAME", tfLabel) { chooseTf() },
-            LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 10, 0, 6) }
-        )
-        controls.addView(
-            quickControl("MARKET", market) { chooseMarket() },
-            LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 0, 0, 6) }
-        )
-        controls.addView(
-            quickControl("ALERT", timingSummary()) { chooseTiming() },
-            LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 0, 0, 6) }
-        )
-        controls.addView(
-            quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
-            LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 0, 0, 0) }
-        )
-        content.addView(controls, LinearLayout.LayoutParams(-1, 340).apply { setMargins(0, 0, 0, 12) })
-
-        val status = panel().apply { setPadding(16, 12, 16, 12) }
-        val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val enabled = prefs.getBoolean("enabled", true)
-        statusRow.addView(text("●", 20f, if (enabled) green else red))
-        val statusTexts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        statusTexts.addView(text(if (enabled) "Alerts active" else "Alerts paused", 15f).apply { typeface = Typeface.DEFAULT_BOLD })
-        statusTexts.addView(text(if (enabled) "Next candle alert is scheduled." else "Turn alerts on to schedule the next candle.", 12f, muted).apply { setPadding(0, 3, 0, 0) })
-        statusRow.addView(statusTexts, LinearLayout.LayoutParams(0, 54).apply { weight = 1f })
-        val sw = Switch(this).apply { isChecked = enabled; minWidth = 52 }
-        statusRow.addView(sw, LinearLayout.LayoutParams(56, 48))
-        status.addView(statusRow)
-        sw.setOnCheckedChangeListener { _, value ->
-            prefs.edit().putBoolean("enabled", value).apply()
-            Scheduler.scheduleNext(this)
-            showHome()
-        }
-        content.addView(status, LinearLayout.LayoutParams(-1, 92).apply { setMargins(0, 0, 0, 10) })
+        content.addView(quickControl("TIMEFRAME", tfLabel) { chooseTf() },
+            LinearLayout.LayoutParams(-1, 88).apply { setMargins(0, 0, 0, 10) })
+        content.addView(quickControl("MARKET", market) { chooseMarket() },
+            LinearLayout.LayoutParams(-1, 88).apply { setMargins(0, 0, 0, 10) })
+        content.addView(quickControl("ALERT", timingSummary()) { chooseTiming() },
+            LinearLayout.LayoutParams(-1, 88).apply { setMargins(0, 0, 0, 10) })
+        content.addView(quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
+            LinearLayout.LayoutParams(-1, 88).apply { setMargins(0, 0, 0, 18) })
 
         val navHost = LinearLayout(this).apply { setPadding(18, 0, 18, 8) }
         addBottom(navHost, "home")
