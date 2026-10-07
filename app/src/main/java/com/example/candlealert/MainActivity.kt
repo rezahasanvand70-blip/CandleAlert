@@ -192,48 +192,48 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(0, 42).apply { weight = 1f; gravity = Gravity.CENTER_VERTICAL })
         content.addView(info, LinearLayout.LayoutParams(-1, 42).apply { setMargins(0, 4, 0, 6) })
 
-        val controls = panel().apply { setPadding(14, 12, 14, 12) }
+        val controls = panel().apply { setPadding(16, 14, 16, 14) }
         controls.addView(text("QUICK CONTROLS", 11f, muted))
         val controlRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 10, 0, 0)
+            setPadding(0, 12, 0, 0)
         }
         fun control(labelText: String, value: String, click: () -> Unit): LinearLayout {
             val box = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(14, 10, 14, 10)
+                setPadding(16, 12, 16, 12)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(soft)
                     cornerRadius = 14f
                 }
-                minimumHeight = 84
+                minimumHeight = 92
                 isClickable = true
                 setOnClickListener { click() }
             }
             box.addView(text(labelText, 11f, muted))
-            box.addView(text(value, 17f).apply {
+            box.addView(text(value, 18f).apply {
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(0, 6, 0, 0)
             })
             return box
         }
         controlRow.addView(control("SYMBOL", symbol) { chooseSymbol() },
-            LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(0, 0, 4, 0) })
+            LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(0, 0, 10, 0) })
         controlRow.addView(control("TIMEFRAME", tfLabel) { chooseTf() },
-            LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(4, 0, 0, 0) })
+            LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(10, 0, 0, 0) })
         controls.addView(controlRow)
 
         val controlRow2 = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 8, 0, 0)
+            setPadding(0, 14, 0, 0)
         }
         controlRow2.addView(control("MARKET", market) { chooseMarket() },
             LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(0, 0, 4, 0) })
         controlRow2.addView(control("ALERT", timingSummary()) { chooseTiming() },
             LinearLayout.LayoutParams(0, 84).apply { weight = 1f; setMargins(4, 0, 0, 0) })
         controls.addView(controlRow2)
-        content.addView(controls, LinearLayout.LayoutParams(-1, 214).apply { setMargins(0, 0, 0, 10) })
+        content.addView(controls, LinearLayout.LayoutParams(-1, 242).apply { setMargins(0, 0, 0, 10) })
 
         val status = panel().apply { setPadding(16, 12, 16, 12) }
         val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -570,14 +570,25 @@ class MainActivity : AppCompatActivity() {
     private fun showThemeSettings() {
         val root = base()
         root.addView(text("Appearance", 28f))
-        root.addView(text("Minimal Light is designed for fast, clear trading use.", 14f, muted).apply { setPadding(0, 4, 0, 14) })
+        root.addView(text("Choose how Candle Alert looks on your phone.", 14f, muted).apply { setPadding(0, 4, 0, 14) })
 
-        val preview = panel().apply { setPadding(16, 14, 16, 14) }
-        preview.addView(text("MINIMAL LIGHT", 11f, muted))
-        preview.addView(text("Clean • Focused • Trading-first", 18f).apply { typeface = Typeface.DEFAULT_BOLD; setPadding(0, 6, 0, 0) })
-        root.addView(preview, LinearLayout.LayoutParams(-1, 92).apply { setMargins(0, 0, 0, 12) })
+        root.addView(text("THEME", 11f, muted).apply { setPadding(2, 4, 0, 6) })
+        val currentTheme = prefs.getString("theme_mode", "light") ?: "light"
+        val themes = listOf("Light" to "light", "Dark" to "dark", "System default" to "system")
+        themes.forEach { item ->
+            val c = panel().apply { setPadding(16, 8, 14, 8) }
+            val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
+            titles.addView(text(item.first, 16f).apply { typeface = Typeface.DEFAULT_BOLD })
+            titles.addView(text(if (item.second == "system") "Follow your Android system setting" else "Use " + item.first.lowercase() + " appearance", 12f, muted).apply { setPadding(0, 4, 0, 0) })
+            row.addView(titles, LinearLayout.LayoutParams(0, 64).apply { weight = 1f })
+            row.addView(text(if (currentTheme == item.second) "✓" else "", 22f, accent))
+            c.addView(row)
+            c.setOnClickListener { prefs.edit().putString("theme_mode", item.second).apply(); applyThemeMode(item.second); showThemeSettings() }
+            root.addView(c, LinearLayout.LayoutParams(-1, 84).apply { setMargins(0, 5, 0, 5) })
+        }
 
-        root.addView(text("ACCENT COLOR", 11f, muted).apply { setPadding(2, 4, 0, 6) })
+        root.addView(text("ACCENT COLOR", 11f, muted).apply { setPadding(2, 12, 0, 6) })
         val accents = listOf("Trading Blue" to "#1677FF", "Ocean Blue" to "#238FF5", "Emerald" to "#18B77D", "Violet" to "#7467E8")
         accents.forEach { pair ->
             val c = panel().apply { setPadding(16, 7, 14, 7) }
@@ -595,6 +606,17 @@ class MainActivity : AppCompatActivity() {
         root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
+    }
+
+    private fun applyThemeMode(mode: String) {
+        val dark = when (mode) {
+            "dark" -> true
+            "system" -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            else -> false
+        }
+        window.statusBarColor = if (dark) Color.rgb(18, 22, 28) else bg
+        window.navigationBarColor = if (dark) Color.rgb(18, 22, 28) else bg
+        if (android.os.Build.VERSION.SDK_INT >= 23) window.decorView.systemUiVisibility = if (dark) 0 else View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
     }
 
     private fun chooseNotificationApp() {
