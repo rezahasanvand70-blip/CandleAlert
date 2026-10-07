@@ -43,7 +43,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(b)
         applyFreshInstallDefaults()
         applySystemBars()
-        applyThemeMode(prefs.getString("theme_mode", "light") ?: "light")
         showHome()
         Scheduler.scheduleNext(this)
         if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -111,8 +110,8 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = bg
         if (android.os.Build.VERSION.SDK_INT >= 23) {
             var flags = 0
-            if (!darkTheme) flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-            if (android.os.Build.VERSION.SDK_INT >= 26 && !darkTheme) flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            if (!darkMode) flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            if (android.os.Build.VERSION.SDK_INT >= 26 && !darkMode) flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
             window.decorView.systemUiVisibility = flags
         }
     }
@@ -157,7 +156,7 @@ class MainActivity : AppCompatActivity() {
         // The clock is a true edge-to-edge square: its canvas is exactly the physical
         // phone width and its center is exactly the screen center.
         val clockSize = resources.displayMetrics.widthPixels
-        val clock = AnalogClockView(this, accent, textColor, muted, darkTheme) {
+        val clock = AnalogClockView(this, accent, textColor, muted, darkMode) {
             prefs.getInt("tf", 60).coerceAtLeast(1)
         }
         root.addView(clock, LinearLayout.LayoutParams(-1, clockSize).apply {
