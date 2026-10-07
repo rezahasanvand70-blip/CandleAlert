@@ -41,7 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome(){
         val root=base();val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(label("🔔",28f,textColor),LinearLayout.LayoutParams(46,46));head.addView(label("Candle",24f,textColor));head.addView(label("Alert",24f,green))
+        head.addView(ImageView(this).apply{setImageResource(android.R.drawable.ic_popup_reminder);setPadding(8,8,8,8)},LinearLayout.LayoutParams(46,46));head.addView(label("Candle",24f,textColor));head.addView(label("Alert",24f,green))
         val gear=label("⚙",25f,textColor).apply{gravity=Gravity.CENTER};head.addView(gear,LinearLayout.LayoutParams(0,52).apply{weight=1f});gear.setOnClickListener{showSettings()};root.addView(head)
         val status=card();val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
         row.addView(label("●",25f,if(prefs.getBoolean("enabled",true))green else red));row.addView(label(if(prefs.getBoolean("enabled",true))"  Monitoring" else "  Alerts paused",19f,textColor),LinearLayout.LayoutParams(0,50).apply{weight=1f})
@@ -56,18 +56,17 @@ class MainActivity : AppCompatActivity() {
         root.addView(next,LinearLayout.LayoutParams(-1,0).apply{weight=1f});addBottom(root,"home");setContentView(root)}
 
     private fun addBottom(root:LinearLayout,active:String){
-        val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,0)}
-        listOf("⌂" to "Home","🔔" to "Alerts","▤" to "Journal","⚙" to "Settings").forEach{(ic,n)->
-            val item=LinearLayout(this).apply{
-                orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER
-                background=rounded(if(active==n.lowercase()) card2 else card,18f);setPadding(2,4,2,3)
-            }
-            item.addView(label(ic,22f,if(active==n.lowercase()) green else textColor),LinearLayout.LayoutParams(-1,28))
+        val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,2)}
+        val icons=mapOf("Home" to android.R.drawable.ic_menu_view,"Alerts" to android.R.drawable.ic_popup_reminder,"Journal" to android.R.drawable.ic_menu_edit,"Settings" to android.R.drawable.ic_menu_preferences)
+        listOf("Home","Alerts","Journal","Settings").forEach{n->
+            val item=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;background=rounded(if(active==n.lowercase()) card2 else card,18f);setPadding(4,3,4,3)}
+            val icon=ImageView(this).apply{setImageResource(icons[n]!!);setColorFilter(if(active==n.lowercase()) green else textColor);setPadding(5,4,5,1)}
+            item.addView(icon,LinearLayout.LayoutParams(42,34))
             item.addView(label(n,10f,if(active==n.lowercase()) green else muted).apply{gravity=Gravity.CENTER})
             item.setOnClickListener{when(n){"Home"->showHome();"Alerts"->showAlerts();"Journal"->showJournal();"Settings"->showSettings()}}
-            nav.addView(item,LinearLayout.LayoutParams(0,62).apply{weight=1f;setMargins(3,0,3,0)})
+            nav.addView(item,LinearLayout.LayoutParams(0,68).apply{weight=1f;setMargins(3,0,3,0)})
         }
-        root.addView(nav,LinearLayout.LayoutParams(-1,70))
+        root.addView(nav,LinearLayout.LayoutParams(-1,74))
     }
 
     private fun showAlerts(){val root=base();root.addView(label("Alerts",28f,textColor));root.addView(label("Recent candle notifications",14f,muted));val box=card();val list=prefs.getStringSet("history",emptySet())?.toList()?.sortedDescending()?:emptyList()
@@ -81,7 +80,34 @@ class MainActivity : AppCompatActivity() {
         root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f});addBottom(root,"settings");setContentView(root)}
 
     private fun chooseTf(){val vals=arrayOf("1 Minute (M1)","3 Minutes (M3)","5 Minutes (M5)","15 Minutes (M15)","30 Minutes (M30)","1 Hour (H1)","4 Hours (H4)");val nums=listOf(1,3,5,15,30,60,240);AlertDialog.Builder(this).setTitle("Timeframe").setSingleChoiceItems(vals,nums.indexOf(prefs.getInt("tf",5))){d,w->prefs.edit().putInt("tf",nums[w]).apply();d.dismiss();Scheduler.scheduleNext(this);showSettings()}.show()}
-    private fun chooseTiming(){val vals=arrayOf("Exactly at candle close","+ 30 seconds","+ 1 minute","+ 2 minutes","- 30 seconds","- 1 minute","- 2 minutes");AlertDialog.Builder(this).setTitle("Alert Timing").setItems(vals){_,w->val mode=if(w==0)1 else if(w<4)2 else 0;val off=when(w){0->0;1,4->30;2,5->60;3,6->120;else->120};prefs.edit().putInt("mode",mode).putInt("offset",off).apply();Scheduler.scheduleNext(this)}.show()}
+    private fun chooseTiming(){
+        val root=base()
+        root.addView(label("Alert Timing",28f,textColor))
+        root.addView(label("Choose when the alert should fire relative to candle close.",14f,muted).apply{setPadding(0,4,0,14)})
+        val vals=arrayOf("Exactly at candle close","+ 30 seconds","+ 1 minute","+ 2 minutes","- 30 seconds","- 1 minute","- 2 minutes")
+        val modeVals=intArrayOf(1,2,2,2,0,0,0)
+        val offVals=intArrayOf(0,30,60,120,30,60,120)
+        val currentMode=prefs.getInt("mode",0)
+        val currentOff=prefs.getInt("offset",120)
+        vals.forEachIndexed{idx,v->
+            val selected=modeVals[idx]==currentMode && offVals[idx]==currentOff
+            val c=card()
+            val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+            r.addView(label(v,16f,if(selected) green else textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
+            r.addView(label(if(selected)"✓" else "›",24f,if(selected) green else muted))
+            c.addView(r)
+            c.setOnClickListener{
+                prefs.edit().putInt("mode",modeVals[idx]).putInt("offset",offVals[idx]).apply()
+                Scheduler.scheduleNext(this)
+                showSettings()
+            }
+            root.addView(c,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,6,0,0)})
+        }
+        root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
+        addBottom(root,"settings")
+        setContentView(root)
+    }
+
     private fun chooseMarket(){val vals=arrayOf("Forex","Crypto (24/7)","Forex + Crypto");AlertDialog.Builder(this).setTitle("Market").setSingleChoiceItems(vals,prefs.getInt("market",0)){d,w->prefs.edit().putInt("market",w).apply();d.dismiss();Scheduler.scheduleNext(this)}.show()}
     private fun editQuiet(){val e=EditText(this).apply{setText(prefs.getString("quiet","00:00-07:30"));hint="00:00-07:30"};AlertDialog.Builder(this).setTitle("Sleep Hours").setMessage("No notifications during this period (phone local time).").setView(e).setPositiveButton("Save"){_,_->prefs.edit().putString("quiet",e.text.toString()).apply();Scheduler.scheduleNext(this)}.setNegativeButton("Cancel",null).show()}
 }
