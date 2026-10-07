@@ -157,7 +157,7 @@ class MainActivity : AppCompatActivity() {
         // The clock is a true edge-to-edge square: its canvas is exactly the physical
         // phone width and its center is exactly the screen center.
         val clockSize = resources.displayMetrics.widthPixels
-        val clock = AnalogClockView(this, accent, textColor, muted, false) {
+        val clock = AnalogClockView(this, accent, textColor, muted, darkTheme) {
             prefs.getInt("tf", 60).coerceAtLeast(1)
         }
         root.addView(clock, LinearLayout.LayoutParams(-1, clockSize).apply {
