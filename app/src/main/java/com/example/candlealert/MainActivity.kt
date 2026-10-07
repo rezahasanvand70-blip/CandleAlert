@@ -110,8 +110,11 @@ class MainActivity : AppCompatActivity() {
     private fun chooseNotificationApp(){
         val root=base()
         root.addView(label("Open App on Notification",28f,textColor))
-        root.addView(label("Choose which installed app opens when you tap a CandleAlert notification.",14f,muted).apply{setPadding(0,4,0,12)})
+        root.addView(label("Only trading apps are shown. You can also add any installed app manually.",14f,muted).apply{setPadding(0,4,0,12)})
+
         val current=prefs.getString("notification_app_package","")?:""
+        val custom=prefs.getStringSet("custom_notification_apps",emptySet())?:emptySet()
+
         val none=card()
         val nr=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
         nr.addView(label("No app",17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
@@ -122,18 +125,88 @@ class MainActivity : AppCompatActivity() {
 
         val pm=packageManager
         val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val allApps=pm.queryIntentActivities(intent,0)
+            .map{it.activityInfo.packageName to it.loadLabel(pm).toString()}
+            .filter{it.first!=packageName}
+            .distinctBy{it.first}
+
+        val tradingWords=listOf(
+            "metatrader","meta trader","tradingview","trading view","ctrader","c trader",
+            "ninjatrader","thinktrader","trading 212","ibkr","interactive brokers","etoro",
+            "binance","bybit","okx","kraken","coinbase","kucoin","bitget","mexc","deriv",
+            "exness","xm trading","alpari","fxtm","oanda","ic markets","pepperstone",
+            "eightcap","admirals","tickmill","fbs","roboforex","fxpro","xtb","capital.com",
+            "trading","trade","trader","broker","forex","crypto","exchange","invest"
+        )
+        val tradingApps=allApps
+            .filter{(_,name)->tradingWords.any{name.lowercase().contains(it)}}
+            .sortedWith(compareBy({!(it.second.contains("MetaTrader",true)||it.second.contains("TradingView",true))},{it.second.lowercase()}))
+
+        root.addView(label("TRADING APPS",12f,muted).apply{setPadding(4,6,0,4)})
+        if(tradingApps.isEmpty()){
+            root.addView(label("No trading app was detected automatically.",15f,muted).apply{setPadding(4,8,4,8)})
+        } else {
+            tradingApps.forEach{addNotificationAppRow(root,it.first,it.second,current,false)}
+        }
+
+        root.addView(label("MY ADDED APPS",12f,muted).apply{setPadding(4,12,0,4)})
+        val customApps=allApps.filter{custom.contains(it.first)}.sortedBy{it.second.lowercase()}
+        if(customApps.isEmpty()){
+            root.addView(label("No manually added app.",15f,muted).apply{setPadding(4,8,4,8)})
+        } else {
+            customApps.forEach{addNotificationAppRow(root,it.first,it.second,current,true)}
+        }
+
+        val add=card()
+        val ar=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+        ar.addView(label("＋  Add from installed apps",17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
+        ar.addView(label("›",28f,muted))
+        add.addView(ar)
+        add.setOnClickListener{showInstalledAppsPicker()}
+        root.addView(add,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,12,0,6)})
+
+        root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
+        addBottom(root,"settings")
+        setContentView(root)
+    }
+
+    private fun addNotificationAppRow(root:LinearLayout,pkg:String,name:String,current:String,custom:Boolean){
+        val c=card()
+        val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+        r.addView(label(name,16f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
+        if(pkg==current)r.addView(label("✓",22f,green))
+        c.addView(r)
+        c.setOnClickListener{
+            prefs.edit().putString("notification_app_package",pkg).putString("notification_app_label",name).apply()
+            showSettings()
+        }
+        root.addView(c,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,4,0,4)})
+    }
+
+    private fun showInstalledAppsPicker(){
+        val root=base()
+        root.addView(label("Add Installed App",28f,textColor))
+        root.addView(label("Select an installed app to add it to your notification app list.",14f,muted).apply{setPadding(0,4,0,12)})
+        val pm=packageManager
+        val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val custom=prefs.getStringSet("custom_notification_apps",emptySet())?.toMutableSet()?:mutableSetOf()
         val apps=pm.queryIntentActivities(intent,0)
             .map{it.activityInfo.packageName to it.loadLabel(pm).toString()}
             .filter{it.first!=packageName}
             .distinctBy{it.first}
-            .sortedWith(compareBy({!(it.second.contains("MetaTrader",true)||it.second.contains("TradingView",true))},{it.second.lowercase()}))
-        if(apps.isEmpty()) root.addView(label("No launchable apps found.",15f,muted))
-        else apps.forEach{(pkg,name)->
-            val c=card();val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+            .sortedBy{it.second.lowercase()}
+
+        apps.forEach{(pkg,name)->
+            val c=card()
+            val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
             r.addView(label(name,16f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
-            if(pkg==current)r.addView(label("✓",22f,green))
+            r.addView(label(if(custom.contains(pkg))"✓" else "＋",22f,if(custom.contains(pkg))green else muted))
             c.addView(r)
-            c.setOnClickListener{prefs.edit().putString("notification_app_package",pkg).putString("notification_app_label",name).apply();showSettings()}
+            c.setOnClickListener{
+                if(!custom.add(pkg))custom.remove(pkg)
+                prefs.edit().putStringSet("custom_notification_apps",custom).apply()
+                showInstalledAppsPicker()
+            }
             root.addView(c,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,4,0,4)})
         }
         root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
