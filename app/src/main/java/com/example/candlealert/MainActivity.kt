@@ -14,6 +14,7 @@ import android.view.View
 import android.content.res.Configuration
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.util.Locale
@@ -38,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private var ticker: Runnable? = null
 
     override fun onCreate(b: Bundle?) {
+        applyNightModePreference()
         super.onCreate(b)
         applyFreshInstallDefaults()
         applySystemBars()
@@ -47,6 +49,17 @@ class MainActivity : AppCompatActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 9)
         }
+    }
+
+    private fun applyNightModePreference() {
+        val mode = prefs.getString("theme_mode", "light")
+        AppCompatDelegate.setDefaultNightMode(
+            when (mode) {
+                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                "system" -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                else -> AppCompatDelegate.MODE_NIGHT_NO
+            }
+        )
     }
 
     private fun applyFreshInstallDefaults() {
@@ -568,7 +581,7 @@ class MainActivity : AppCompatActivity() {
             row.addView(titles, LinearLayout.LayoutParams(0, 66).apply { weight = 1f })
             row.addView(text(if (prefs.getString("theme_mode", "light") == mode) "✓" else "", 23f, accent))
             c.addView(row)
-            c.setOnClickListener { prefs.edit().putString("theme_mode", mode).apply(); applySystemBars(); showSettings() }
+            c.setOnClickListener { prefs.edit().putString("theme_mode", mode).apply(); applyNightModePreference(); showSettings() }
             root.addView(c, LinearLayout.LayoutParams(-1, 84).apply { setMargins(0, 5, 0, 5) })
         }
         root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
