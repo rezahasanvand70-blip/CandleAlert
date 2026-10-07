@@ -46,10 +46,12 @@ class AnalogClockView(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        // The Home screen supplies a square canvas exactly equal to the phone width.
+        // Use that full square so the outer clock edge aligns with both screen edges.
         val size = min(width, height).toFloat()
         val cx = width / 2f
         val cy = height / 2f
-        val radius = size * 0.43f
+        val radius = (size / 2f - 12f).coerceAtLeast(1f)
 
         face.style = Paint.Style.FILL
         face.color = 0xFFFFFFFF.toInt()
