@@ -13,11 +13,11 @@ object Scheduler {
         val p=c.getSharedPreferences("prefs",0)
         if(!p.getBoolean("enabled",true)) return null
         val now=java.time.Instant.now().epochSecond
-        val tf=p.getInt("tf",5).coerceAtLeast(1)
+        val tf=p.getInt("tf",60).coerceAtLeast(1)
         val period=tf*60L
-        val mode=p.getInt("mode",0)
+        val mode=p.getInt("mode",1)
         val off=p.getInt("offset",0).coerceAtLeast(0)
-        var close=((now/period)+1)*period
+        var close=nextCandleClose(now, tf, p.getString("open_market","00:00")?:"00:00")
         repeat(10000){
             val trigger=when(mode){0->close-off;2->close+off;else->close}
             if(trigger>now){
@@ -55,7 +55,7 @@ object Scheduler {
 
         // Start from the next candle close and keep advancing until we find
         // a trigger that is actually in the future and allowed by the filters.
-        var close = ((now / period) + 1) * period
+        var close = nextCandleClose(now, tf, p.getString("open_market", "00:00") ?: "00:00")
         var attempts = 0
         while (attempts++ < 10000) {
             val trigger = when (mode) {
@@ -99,6 +99,27 @@ object Scheduler {
 
             close += period
         }
+    }
+
+    private fun nextCandleClose(now: Long, tfMinutes: Int, open: String): Long {
+        val zone = ZoneId.systemDefault()
+        val zNow = ZonedDateTime.ofInstant(Instant.ofEpochSecond(now), zone)
+        val parts = open.split(":")
+        val oh = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0,23) ?: 0
+        val om = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0,59) ?: 0
+        val anchor = zNow.toLocalDate().atTime(oh, om).atZone(zone)
+        val period = tfMinutes.coerceAtLeast(1) * 60L
+        var close = anchor.toEpochSecond()
+        if (close <= now) {
+            val elapsed = now - close
+            close += ((elapsed / period) + 1) * period
+        } else {
+            // If today's broker open is still ahead, use the previous day's anchor.
+            close -= 24L * 3600L
+            val elapsed = now - close
+            close += ((elapsed / period) + 1) * period
+        }
+        return close
     }
 
     private fun marketOpen(epoch: Long, c: Context): Boolean {
