@@ -128,6 +128,23 @@ class MainActivity : AppCompatActivity() {
         ticker=run
         handler.post(run)
     }
+    private fun formatCountdown(s:Long):String{
+        val h=s/3600
+        val m=(s%3600)/60
+        val sec=s%60
+        return if(h>0) String.format(Locale.getDefault(),"%02d:%02d:%02d",h,m,sec)
+        else String.format(Locale.getDefault(),"%02d:%02d",m,sec)
+    }
+    private fun timingSummary():String{
+        val mode=prefs.getInt("mode",0)
+        val off=prefs.getInt("offset",120)
+        if(mode==1||off==0)return "At close"
+        return (if(mode==0)"Before " else "After ")+formatOffset(off)
+    }
+    private fun formatOffset(s:Int):String=when(s){
+        10->"10s";30->"30s";45->"45s";60->"1m";120->"2m";180->"3m";300->"5m";else->s.toString()+"s"
+    }
+
     private fun addBottom(root:LinearLayout,active:String){
         val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,2)}
         val icons=mapOf("Home" to android.R.drawable.ic_menu_view,"Alerts" to android.R.drawable.ic_popup_reminder,"Journal" to android.R.drawable.ic_menu_edit,"Settings" to android.R.drawable.ic_menu_preferences)
