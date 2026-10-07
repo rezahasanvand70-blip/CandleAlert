@@ -9,6 +9,9 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.widget.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
