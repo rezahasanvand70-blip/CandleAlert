@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
-import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 
@@ -28,7 +27,7 @@ class MainActivity : AppCompatActivity() {
         val scroll = ScrollView(this)
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(box)
-        root.addView(scroll, ViewGroup.LayoutParams(-1, 0).apply { height = 0; weight = 1f })
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
 
         status = TextView(this).apply { textSize = 22f }
         box.addView(status)
@@ -43,9 +42,8 @@ class MainActivity : AppCompatActivity() {
         val values = listOf(1, 3, 5, 15, 30, 60, 240)
         val tf = Spinner(this)
         tf.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            values.map { v -> if (v < 60) v.toString() + "M" else (v / 60).toString() + "H" }
+            this, android.R.layout.simple_spinner_dropdown_item,
+            values.map { v -> if (v < 60) "${v}M" else "${v / 60}H" }
         )
         tf.setSelection(values.indexOf(prefs.getInt("tf", 5)))
         box.addView(tf)
@@ -53,8 +51,7 @@ class MainActivity : AppCompatActivity() {
         box.addView(TextView(this).apply { text = "Market"; textSize = 18f })
         val market = Spinner(this)
         market.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
+            this, android.R.layout.simple_spinner_dropdown_item,
             listOf("Forex", "Crypto (24/7)", "Forex + Crypto")
         )
         market.setSelection(prefs.getInt("market", 0))
@@ -63,8 +60,7 @@ class MainActivity : AppCompatActivity() {
         box.addView(TextView(this).apply { text = "Alert timing"; textSize = 18f })
         val mode = Spinner(this)
         mode.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
+            this, android.R.layout.simple_spinner_dropdown_item,
             listOf("Before candle close", "At candle close", "After candle close")
         )
         mode.setSelection(prefs.getInt("mode", 0))
@@ -138,6 +134,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus() {
         val state = if (prefs.getBoolean("enabled", true)) "ON" else "OFF"
-        status.text = state + "  •  Next alerts use " + prefs.getInt("tf", 5) + "M candles"
+        val tf = prefs.getInt("tf", 5)
+        status.text = state + "  •  Next alerts use " + if (tf >= 60) (tf / 60).toString() + "H candles" else tf.toString() + "M candles"
     }
 }
