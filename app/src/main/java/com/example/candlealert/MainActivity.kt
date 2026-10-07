@@ -102,9 +102,44 @@ class MainActivity : AppCompatActivity() {
 
     private fun showJournal(){val root=base();root.addView(label("Journal",28f,textColor));root.addView(label("Your CandleAlert activity",14f,muted));val b=card();b.addView(label("Trading journal",20f,textColor));b.addView(label("Trade notes and performance tracking can be added here.",14f,muted).apply{setPadding(0,10,0,0)});root.addView(b,LinearLayout.LayoutParams(-1,0).apply{weight=1f;setMargins(0,16,0,16)});addBottom(root,"journal");setContentView(root)}
 
-    private fun showSettings(){val root=base();root.addView(label("Settings",28f,textColor));root.addView(label("Customize your alerts",14f,muted));val options=listOf("Timeframe","Alert Timing","Market & Sessions","Sleep Hours","Exact Alarm Permission")
-        options.forEach{name->val c=card();val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};r.addView(label(name,17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f});r.addView(label("›",28f,muted));c.addView(r);c.setOnClickListener{when(name){"Timeframe"->chooseTf();"Alert Timing"->chooseTiming();"Market & Sessions"->chooseMarket();"Sleep Hours"->editQuiet();"Exact Alarm Permission"->if(android.os.Build.VERSION.SDK_INT>=31)startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = android.net.Uri.parse("package:$packageName") })}};root.addView(c,LinearLayout.LayoutParams(-1,70).apply{setMargins(0,8,0,0)})}
+    private fun showSettings(){val root=base();root.addView(label("Settings",28f,textColor));root.addView(label("Customize your alerts",14f,muted));val options=listOf("Timeframe","Alert Timing","Market & Sessions","Sleep Hours","Open App on Notification","Exact Alarm Permission")
+        options.forEach{name->val c=card();val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};r.addView(label(name,17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f});r.addView(label("›",28f,muted));c.addView(r);c.setOnClickListener{when(name){"Timeframe"->chooseTf();"Alert Timing"->chooseTiming();"Market & Sessions"->chooseMarket();"Sleep Hours"->editQuiet();"Open App on Notification"->chooseNotificationApp();"Exact Alarm Permission"->if(android.os.Build.VERSION.SDK_INT>=31)startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = android.net.Uri.parse("package:$packageName") })}};root.addView(c,LinearLayout.LayoutParams(-1,70).apply{setMargins(0,8,0,0)})}
         root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f});addBottom(root,"settings");setContentView(root)}
+
+
+    private fun chooseNotificationApp(){
+        val root=base()
+        root.addView(label("Open App on Notification",28f,textColor))
+        root.addView(label("Choose which installed app opens when you tap a CandleAlert notification.",14f,muted).apply{setPadding(0,4,0,12)})
+        val current=prefs.getString("notification_app_package","")?:""
+        val none=card()
+        val nr=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+        nr.addView(label("No app",17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
+        nr.addView(label(if(current.isEmpty())"✓" else "",22f,green))
+        none.addView(nr)
+        none.setOnClickListener{prefs.edit().remove("notification_app_package").remove("notification_app_label").apply();showSettings()}
+        root.addView(none,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,6,0,10)})
+
+        val pm=packageManager
+        val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps=pm.queryIntentActivities(intent,0)
+            .map{it.activityInfo.packageName to it.loadLabel(pm).toString()}
+            .filter{it.first!=packageName}
+            .distinctBy{it.first}
+            .sortedWith(compareBy({!(it.second.contains("MetaTrader",true)||it.second.contains("TradingView",true))},{it.second.lowercase()}))
+        if(apps.isEmpty()) root.addView(label("No launchable apps found.",15f,muted))
+        else apps.forEach{(pkg,name)->
+            val c=card();val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+            r.addView(label(name,16f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
+            if(pkg==current)r.addView(label("✓",22f,green))
+            c.addView(r)
+            c.setOnClickListener{prefs.edit().putString("notification_app_package",pkg).putString("notification_app_label",name).apply();showSettings()}
+            root.addView(c,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,4,0,4)})
+        }
+        root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
+        addBottom(root,"settings")
+        setContentView(root)
+    }
 
     private fun chooseTf(){val vals=arrayOf("1 Minute (M1)","3 Minutes (M3)","5 Minutes (M5)","15 Minutes (M15)","30 Minutes (M30)","1 Hour (H1)","4 Hours (H4)");val nums=listOf(1,3,5,15,30,60,240);AlertDialog.Builder(this).setTitle("Timeframe").setSingleChoiceItems(vals,nums.indexOf(prefs.getInt("tf",5))){d,w->prefs.edit().putInt("tf",nums[w]).apply();d.dismiss();Scheduler.scheduleNext(this);showSettings()}.show()}
     private fun chooseTiming(){
