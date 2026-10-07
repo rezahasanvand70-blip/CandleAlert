@@ -19,7 +19,7 @@ class AlertReceiver : BroadcastReceiver() {
         p.edit().putStringSet("history", old).apply()
 
         val nm = c.getSystemService(NotificationManager::class.java)
-        val channelId = "candle_alerts"
+        val channelId = "candle_alerts_v2"
 
         if (Build.VERSION.SDK_INT >= 26) {
             val channel = NotificationChannel(
