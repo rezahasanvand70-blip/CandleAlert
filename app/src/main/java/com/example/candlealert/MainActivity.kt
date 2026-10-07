@@ -13,8 +13,6 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.widget.*
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
@@ -69,15 +67,15 @@ class MainActivity : AppCompatActivity() {
         root.addView(head)
 
         val clockCard=card().apply{setPadding(12,12,12,14)}
-        val clock=AnalogClockView(this,green,textColor,muted)
-        clockCard.addView(clock,LinearLayout.LayoutParams(-1,260))
-        val digital=label(SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date()),22f,textColor).apply{
-            gravity=Gravity.CENTER
-            typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)
-            setPadding(0,2,0,0)
+        val clock=AnalogClockView(this,green,textColor,muted){
+            val trigger=Scheduler.nextTrigger(this@MainActivity)
+            if(trigger==null) null else (trigger-System.currentTimeMillis()/1000).coerceAtLeast(0L)
         }
-        clockCard.addView(digital)
-        clockCard.addView(label("LOCAL TIME",10f,muted).apply{gravity=Gravity.CENTER;setPadding(0,2,0,4)})
+        clockCard.addView(clock,LinearLayout.LayoutParams(-1,260))
+        clockCard.addView(label("TIME UNTIL NEXT ALERT",11f,muted).apply{
+            gravity=Gravity.CENTER
+            setPadding(0,4,0,2)
+        })
         root.addView(clockCard,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,10,0,10)})
 
         val status=card()
@@ -109,31 +107,27 @@ class MainActivity : AppCompatActivity() {
 
         addBottom(root,"home")
         setContentView(root)
-
-        val digitalTicker=object:Runnable{
-            override fun run(){
-                if(isFinishing)return
-                digital.text=SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date())
-                handler.postDelayed(this,1000)
-            }
-        }
-        handler.post(digitalTicker)
         updateCountdown()
     }
 
     private fun updateCountdown(){
+        ticker?.let{handler.removeCallbacks(it)}
         val run=object:Runnable{override fun run(){
             if(isFinishing)return
             val trigger=Scheduler.nextTrigger(this@MainActivity);val now=System.currentTimeMillis()/1000
-            if(trigger==null){countdownView?.text=if(!prefs.getBoolean("enabled",true))"PAUSED" else "No alert scheduled";nextDetailsView?.text=Scheduler.nextStatus(this@MainActivity)}
-            else{val left=(trigger-now).coerceAtLeast(0);countdownView?.text=formatCountdown(left);nextDetailsView?.text=SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date(trigger*1000))+"  •  "+Scheduler.nextStatus(this@MainActivity)}
+            if(trigger==null){
+                countdownView?.text=if(!prefs.getBoolean("enabled",true))"PAUSED" else "No alert scheduled"
+                nextDetailsView?.text=Scheduler.nextStatus(this@MainActivity)
+            } else {
+                val left=(trigger-now).coerceAtLeast(0)
+                countdownView?.text=formatCountdown(left)
+                nextDetailsView?.text=Scheduler.nextStatus(this@MainActivity)
+            }
             handler.postDelayed(this,1000)
-        }};ticker=run;handler.post(run)
+        }}
+        ticker=run
+        handler.post(run)
     }
-    private fun formatCountdown(s:Long):String{val h=s/3600;val m=(s%3600)/60;val sec=s%60;return if(h>0)String.format(Locale.getDefault(),"%02d:%02d:%02d",h,m,sec) else String.format(Locale.getDefault(),"%02d:%02d",m,sec)}
-    private fun timingSummary():String{val mode=prefs.getInt("mode",0);val off=prefs.getInt("offset",120);if(mode==1||off==0)return "At close";return (if(mode==0)"Before " else "After ")+formatOffset(off)}
-    private fun formatOffset(s:Int):String=when(s){10->"10s";30->"30s";45->"45s";60->"1m";120->"2m";180->"3m";300->"5m";else->s.toString()+"s"}
-
     private fun addBottom(root:LinearLayout,active:String){
         val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,2)}
         val icons=mapOf("Home" to android.R.drawable.ic_menu_view,"Alerts" to android.R.drawable.ic_popup_reminder,"Journal" to android.R.drawable.ic_menu_edit,"Settings" to android.R.drawable.ic_menu_preferences)
