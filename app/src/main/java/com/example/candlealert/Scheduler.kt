@@ -47,8 +47,8 @@ object Scheduler {
         am.cancel(pi)
         if (!p.getBoolean("enabled", true)) return
 
-        val tf = p.getInt("tf", 5).coerceAtLeast(1)
-        val mode = p.getInt("mode", 0)
+        val tf = p.getInt("tf", 60).coerceAtLeast(1)
+        val mode = p.getInt("mode", 1)
         val off = p.getInt("offset", 0).coerceAtLeast(0)
         val now = Instant.now().epochSecond
         val period = tf * 60L
