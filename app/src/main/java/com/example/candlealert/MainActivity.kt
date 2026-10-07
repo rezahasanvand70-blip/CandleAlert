@@ -1,299 +1,607 @@
 package com.example.candlealert
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.graphics.Typeface
-import android.view.View
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.widget.*
-import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
-    private val bg=Color.rgb(5,18,36);private val card=Color.rgb(9,29,55);private val card2=Color.rgb(13,38,67)
-    private val green=Color.rgb(37,223,160);private val red=Color.rgb(255,70,84);private val textColor=Color.WHITE;private val muted=Color.rgb(155,174,198)
-    private val handler=Handler(Looper.getMainLooper())
-    private var countdownView:TextView?=null
-    private var nextDetailsView:TextView?=null
-    private var ticker:Runnable?=null
+    private val bg = Color.rgb(238, 248, 255)
+    private val card = Color.rgb(255, 255, 255)
+    private val card2 = Color.rgb(245, 251, 255)
+    private val accent = Color.rgb(35, 143, 245)
+    private val cyan = Color.rgb(80, 207, 220)
+    private val green = Color.rgb(30, 190, 153)
+    private val red = Color.rgb(230, 88, 103)
+    private val textColor = Color.rgb(18, 48, 74)
+    private val muted = Color.rgb(105, 132, 151)
+    private val line = Color.rgb(218, 235, 246)
 
-    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=bg;window.navigationBarColor=bg;showHome();Scheduler.scheduleNext(this);if(android.os.Build.VERSION.SDK_INT>=33)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),9)}
-    override fun onDestroy(){ticker?.let{handler.removeCallbacks(it)};super.onDestroy()}
+    private val handler = Handler(Looper.getMainLooper())
+    private var countdownView: TextView? = null
+    private var nextDetailsView: TextView? = null
+    private var ticker: Runnable? = null
 
-    private fun showSplash(){val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setBackgroundColor(bg)}
-        root.addView(ImageView(this).apply{setImageResource(R.drawable.app_icon)},LinearLayout.LayoutParams(150,150))
-        root.addView(label("CandleAlert",34f,textColor).apply{gravity=Gravity.CENTER;setPadding(0,18,0,0)})
-        root.addView(label("Never miss the right moment",15f,muted).apply{gravity=Gravity.CENTER;setPadding(0,8,0,0)})
-        setContentView(root);root.postDelayed({showHome()},700)}
+    override fun onCreate(b: Bundle?) {
+        super.onCreate(b)
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+        showHome()
+        Scheduler.scheduleNext(this)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 9)
+        }
+    }
+
+    override fun onDestroy() {
+        ticker?.let { handler.removeCallbacks(it) }
+        super.onDestroy()
+    }
 
     private fun base(): LinearLayout {
-        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(bg);setPadding(18,14,18,8)}
-        ViewCompat.setOnApplyWindowInsetsListener(root){v,insets->
-            val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(18,14+bars.top,18,8+bars.bottom)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(bg)
+            setPadding(18, 14, 18, 8)
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(18, 14 + bars.top, 18, 8 + bars.bottom)
             insets
         }
         return root
     }
-    private fun label(s:String,size:Float,color:Int)=TextView(this).apply{text=s;textSize=size;setTextColor(color)}
-    private fun rounded(c:Int,r:Float=16f)=android.graphics.drawable.GradientDrawable().apply{setColor(c);cornerRadius=r}
-    private fun card()=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,16,18,16);background=rounded(card2,18f)}
-    private fun button(s:String,selected:Boolean=false)=TextView(this).apply{text=s;textSize=14f;setTextColor(if(selected)bg else textColor);gravity=Gravity.CENTER;setPadding(10,8,10,8);background=rounded(if(selected)green else card,28f)}
 
-    private fun showHome(){
-        val root=base()
+    private fun label(s: String, size: Float, color: Int) = TextView(this).apply {
+        text = s
+        textSize = size
+        setTextColor(color)
+    }
 
-        val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(ImageView(this).apply{
+    private fun rounded(c: Int, r: Float = 20f) =
+        android.graphics.drawable.GradientDrawable().apply {
+            setColor(c)
+            cornerRadius = r
+            setStroke(1, line)
+        }
+
+    private fun card() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(18, 16, 18, 16)
+        background = rounded(card, 20f)
+        elevation = 2f
+    }
+
+    private fun button(s: String, selected: Boolean = false) = TextView(this).apply {
+        text = s
+        textSize = 14f
+        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        setTextColor(if (selected) Color.WHITE else textColor)
+        gravity = Gravity.CENTER
+        setPadding(12, 8, 12, 8)
+        background = rounded(if (selected) accent else card2, 28f)
+    }
+
+    private fun showHome() {
+        val root = base()
+
+        val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        head.addView(ImageView(this).apply {
             setImageResource(android.R.drawable.ic_popup_reminder)
-            setPadding(8,8,8,8)
-        },LinearLayout.LayoutParams(46,46))
-        head.addView(label("Candle",24f,textColor))
-        head.addView(label("Alert",24f,green))
-        val gear=label("⚙",25f,textColor).apply{gravity=Gravity.CENTER}
-        head.addView(gear,LinearLayout.LayoutParams(0,52).apply{weight=1f})
-        gear.setOnClickListener{showSettings()}
+            setColorFilter(accent)
+            setPadding(8, 8, 8, 8)
+        }, LinearLayout.LayoutParams(46, 46))
+        head.addView(label("Candle", 24f, textColor))
+        head.addView(label("Alert", 24f, accent))
+        val gear = label("⚙", 25f, textColor).apply { gravity = Gravity.CENTER }
+        head.addView(gear, LinearLayout.LayoutParams(0, 52).apply { weight = 1f })
+        gear.setOnClickListener { showSettings() }
         root.addView(head)
 
-        val clockCard=card().apply{setPadding(12,12,12,14)}
-        val clock=AnalogClockView(this,green,textColor,muted){
-            val trigger=Scheduler.nextTrigger(this@MainActivity)
-            if(trigger==null) null else (trigger-System.currentTimeMillis()/1000).coerceAtLeast(0L)
+        val clockCard = card().apply {
+            setPadding(8, 8, 8, 14)
+            background = rounded(card, 26f)
         }
-        clockCard.addView(clock,LinearLayout.LayoutParams(-1,260))
-        clockCard.addView(label("TIME UNTIL NEXT ALERT",11f,muted).apply{
-            gravity=Gravity.CENTER
-            setPadding(0,4,0,2)
+        val clock = AnalogClockView(this, accent, textColor, muted) {
+            prefs.getInt("tf", 5).coerceAtLeast(1)
+        }
+        clockCard.addView(clock, LinearLayout.LayoutParams(-1, 340))
+        clockCard.addView(label("LOCAL TIME  •  CANDLE PROGRESS", 11f, muted).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 4, 0, 2)
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         })
-        root.addView(clockCard,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,10,0,10)})
+        root.addView(clockCard, LinearLayout.LayoutParams(-1, -2).apply {
+            setMargins(0, 10, 0, 10)
+        })
 
-        val status=card()
-        val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        row.addView(label("●",22f,if(prefs.getBoolean("enabled",true))green else red))
-        row.addView(label(if(prefs.getBoolean("enabled",true))"  ALERT ACTIVE" else "  ALERTS PAUSED",16f,textColor),LinearLayout.LayoutParams(0,48).apply{weight=1f})
-        val sw=Switch(this).apply{isChecked=prefs.getBoolean("enabled",true)}
+        val status = card()
+        val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        row.addView(label("●", 22f, if (prefs.getBoolean("enabled", true)) green else red))
+        row.addView(
+            label(
+                if (prefs.getBoolean("enabled", true)) "  ALERT ACTIVE" else "  ALERTS PAUSED",
+                16f,
+                textColor
+            ),
+            LinearLayout.LayoutParams(0, 48).apply { weight = 1f }
+        )
+        val sw = Switch(this).apply { isChecked = prefs.getBoolean("enabled", true) }
         row.addView(sw)
         status.addView(row)
-        status.addView(label(if(sw.isChecked)"Monitoring your selected schedule" else "Turn on to receive alerts",12f,muted))
-        sw.setOnCheckedChangeListener{_,v->prefs.edit().putBoolean("enabled",v).apply();Scheduler.scheduleNext(this);showHome()}
-        root.addView(status,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,8)})
+        status.addView(
+            label(
+                if (sw.isChecked) "Blue ring completes one full turn every selected timeframe."
+                else "Turn on to receive alerts.",
+                12f,
+                muted
+            )
+        )
+        sw.setOnCheckedChangeListener { _, v ->
+            prefs.edit().putBoolean("enabled", v).apply()
+            Scheduler.scheduleNext(this)
+            showHome()
+        }
+        root.addView(status, LinearLayout.LayoutParams(-1, -2).apply {
+            setMargins(0, 0, 0, 8)
+        })
 
-        val next=card()
-        next.addView(label("NEXT ALERT",11f,muted))
-        countdownView=label("Calculating…",30f,green).apply{
-            setPadding(0,5,0,0)
-            typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)
+        val next = card()
+        next.addView(label("NEXT ALERT", 11f, muted))
+        countdownView = label("Calculating…", 30f, accent).apply {
+            setPadding(0, 5, 0, 0)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         }
         next.addView(countdownView)
-        nextDetailsView=label("Checking schedule…",12f,muted).apply{setPadding(0,2,0,0)}
+        nextDetailsView = label("Checking schedule…", 12f, muted).apply {
+            setPadding(0, 2, 0, 0)
+        }
         next.addView(nextDetailsView)
 
-        val tf=prefs.getInt("tf",5)
-        val tfText=if(tf>=60)(tf/60).toString()+"H" else tf.toString()+"M"
-        val market=when(prefs.getInt("market",0)){0->"Forex";1->"Crypto";else->"Both"}
-        next.addView(label("TIMEFRAME  $tfText    •    $market    •    "+timingSummary(),12f,textColor).apply{setPadding(0,10,0,0)})
-        root.addView(next,LinearLayout.LayoutParams(-1,0).apply{weight=1f;setMargins(0,0,0,8)})
+        val tf = prefs.getInt("tf", 5)
+        val tfText = if (tf >= 60) (tf / 60).toString() + "H" else tf.toString() + "M"
+        val market = when (prefs.getInt("market", 0)) {
+            0 -> "Forex"
+            1 -> "Crypto"
+            else -> "Both"
+        }
+        next.addView(
+            label(
+                "TIMEFRAME  $tfText    •    $market    •    " + timingSummary(),
+                12f,
+                textColor
+            ).apply { setPadding(0, 10, 0, 0) }
+        )
+        root.addView(next, LinearLayout.LayoutParams(-1, 0).apply {
+            weight = 1f
+            setMargins(0, 0, 0, 8)
+        })
 
-        addBottom(root,"home")
+        addBottom(root, "home")
         setContentView(root)
         updateCountdown()
     }
 
-    private fun updateCountdown(){
-        ticker?.let{handler.removeCallbacks(it)}
-        val run=object:Runnable{override fun run(){
-            if(isFinishing)return
-            val trigger=Scheduler.nextTrigger(this@MainActivity);val now=System.currentTimeMillis()/1000
-            if(trigger==null){
-                countdownView?.text=if(!prefs.getBoolean("enabled",true))"PAUSED" else "No alert scheduled"
-                nextDetailsView?.text=Scheduler.nextStatus(this@MainActivity)
-            } else {
-                val left=(trigger-now).coerceAtLeast(0)
-                countdownView?.text=formatCountdown(left)
-                nextDetailsView?.text=Scheduler.nextStatus(this@MainActivity)
+    private fun updateCountdown() {
+        ticker?.let { handler.removeCallbacks(it) }
+        val run = object : Runnable {
+            override fun run() {
+                if (isFinishing) return
+                val trigger = Scheduler.nextTrigger(this@MainActivity)
+                val now = System.currentTimeMillis() / 1000
+                if (trigger == null) {
+                    countdownView?.text =
+                        if (!prefs.getBoolean("enabled", true)) "PAUSED" else "No alert scheduled"
+                    nextDetailsView?.text = Scheduler.nextStatus(this@MainActivity)
+                } else {
+                    val left = (trigger - now).coerceAtLeast(0)
+                    countdownView?.text = formatCountdown(left)
+                    nextDetailsView?.text = Scheduler.nextStatus(this@MainActivity)
+                }
+                handler.postDelayed(this, 1000)
             }
-            handler.postDelayed(this,1000)
-        }}
-        ticker=run
+        }
+        ticker = run
         handler.post(run)
     }
-    private fun formatCountdown(s:Long):String{
-        val h=s/3600
-        val m=(s%3600)/60
-        val sec=s%60
-        return if(h>0) String.format(Locale.getDefault(),"%02d:%02d:%02d",h,m,sec)
-        else String.format(Locale.getDefault(),"%02d:%02d",m,sec)
-    }
-    private fun timingSummary():String{
-        val mode=prefs.getInt("mode",0)
-        val off=prefs.getInt("offset",120)
-        if(mode==1||off==0)return "At close"
-        return (if(mode==0)"Before " else "After ")+formatOffset(off)
-    }
-    private fun formatOffset(s:Int):String=when(s){
-        10->"10s";30->"30s";45->"45s";60->"1m";120->"2m";180->"3m";300->"5m";else->s.toString()+"s"
+
+    private fun formatCountdown(s: Long): String {
+        val h = s / 3600
+        val m = (s % 3600) / 60
+        val sec = s % 60
+        return if (h > 0) String.format(Locale.getDefault(), "%02d:%02d:%02d", h, m, sec)
+        else String.format(Locale.getDefault(), "%02d:%02d", m, sec)
     }
 
-    private fun addBottom(root:LinearLayout,active:String){
-        val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,2)}
-        val icons=mapOf("Home" to android.R.drawable.ic_menu_view,"Alerts" to android.R.drawable.ic_popup_reminder,"Journal" to android.R.drawable.ic_menu_edit,"Settings" to android.R.drawable.ic_menu_preferences)
-        listOf("Home","Journal","Settings").forEach{n->
-            val item=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;background=rounded(if(active==n.lowercase()) card2 else card,18f);setPadding(4,3,4,3)}
-            val icon=ImageView(this).apply{setImageResource(icons[n]!!);setColorFilter(if(active==n.lowercase()) green else textColor);setPadding(5,4,5,1)}
-            item.addView(icon,LinearLayout.LayoutParams(42,34))
-            item.addView(label(n,10f,if(active==n.lowercase()) green else muted).apply{gravity=Gravity.CENTER})
-            item.setOnClickListener{when(n){"Home"->showHome();"Journal"->showJournal();"Settings"->showSettings()}}
-            nav.addView(item,LinearLayout.LayoutParams(0,68).apply{weight=1f;setMargins(3,0,3,0)})
+    private fun timingSummary(): String {
+        val mode = prefs.getInt("mode", 0)
+        val off = prefs.getInt("offset", 120)
+        if (mode == 1 || off == 0) return "At close"
+        return (if (mode == 0) "Before " else "After ") + formatOffset(off)
+    }
+
+    private fun formatOffset(s: Int): String = when (s) {
+        10 -> "10s"; 30 -> "30s"; 45 -> "45s"; 60 -> "1m"; 120 -> "2m"; 180 -> "3m"; 300 -> "5m"
+        else -> s.toString() + "s"
+    }
+
+    private fun addBottom(root: LinearLayout, active: String) {
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 2)
         }
-        root.addView(nav,LinearLayout.LayoutParams(-1,74))
-    }
-
-    private fun showJournal(){val root=base();root.addView(label("Journal",28f,textColor));root.addView(label("Your CandleAlert activity",14f,muted));val b=card();b.addView(label("Trading journal",20f,textColor));b.addView(label("Trade notes and performance tracking can be added here.",14f,muted).apply{setPadding(0,10,0,0)});root.addView(b,LinearLayout.LayoutParams(-1,0).apply{weight=1f;setMargins(0,16,0,16)});addBottom(root,"journal");setContentView(root)}
-
-    private fun showSettings(){val root=base();root.addView(label("Settings",28f,textColor));root.addView(label("Customize your alerts",14f,muted));val options=listOf("Timeframe","Alert Timing","Market & Sessions","Sleep Hours","Open App on Notification","Exact Alarm Permission")
-        options.forEach{name->val c=card();val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};r.addView(label(name,17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f});r.addView(label("›",28f,muted));c.addView(r);c.setOnClickListener{when(name){"Timeframe"->chooseTf();"Alert Timing"->chooseTiming();"Market & Sessions"->chooseMarket();"Sleep Hours"->editQuiet();"Open App on Notification"->chooseNotificationApp();"Exact Alarm Permission"->if(android.os.Build.VERSION.SDK_INT>=31)startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = android.net.Uri.parse("package:$packageName") })}};root.addView(c,LinearLayout.LayoutParams(-1,70).apply{setMargins(0,8,0,0)})}
-        root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f});addBottom(root,"settings");setContentView(root)}
-
-
-    private fun chooseNotificationApp(){
-        val root=base()
-        root.addView(label("Open App on Notification",28f,textColor))
-        root.addView(label("Only trading apps are shown. You can also add any installed app manually.",14f,muted).apply{setPadding(0,4,0,12)})
-
-        val current=prefs.getString("notification_app_package","")?:""
-        val custom=prefs.getStringSet("custom_notification_apps",emptySet())?:emptySet()
-
-        val none=card()
-        val nr=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        nr.addView(label("No app",17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
-        nr.addView(label(if(current.isEmpty())"✓" else "",22f,green))
-        none.addView(nr)
-        none.setOnClickListener{prefs.edit().remove("notification_app_package").remove("notification_app_label").apply();showSettings()}
-        root.addView(none,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,6,0,10)})
-
-        val pm=packageManager
-        val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val allApps=pm.queryIntentActivities(intent,0)
-            .map{it.activityInfo.packageName to it.loadLabel(pm).toString()}
-            .filter{it.first!=packageName}
-            .distinctBy{it.first}
-
-        val tradingWords=listOf(
-            "metatrader","meta trader","tradingview","trading view","ctrader","c trader",
-            "ninjatrader","thinktrader","trading 212","ibkr","interactive brokers","etoro",
-            "binance","bybit","okx","kraken","coinbase","kucoin","bitget","mexc","deriv",
-            "exness","xm trading","alpari","fxtm","oanda","ic markets","pepperstone",
-            "eightcap","admirals","tickmill","fbs","roboforex","fxpro","xtb","capital.com",
-            "trading","trade","trader","broker","forex","crypto","exchange","invest"
+        val icons = mapOf(
+            "Home" to android.R.drawable.ic_menu_view,
+            "Journal" to android.R.drawable.ic_menu_edit,
+            "Settings" to android.R.drawable.ic_menu_preferences
         )
-        val tradingApps=allApps
-            .filter{(_,name)->tradingWords.any{name.lowercase().contains(it)}}
-            .sortedWith(compareBy({!(it.second.contains("MetaTrader",true)||it.second.contains("TradingView",true))},{it.second.lowercase()}))
-
-        root.addView(label("TRADING APPS",12f,muted).apply{setPadding(4,6,0,4)})
-        if(tradingApps.isEmpty()){
-            root.addView(label("No trading app was detected automatically.",15f,muted).apply{setPadding(4,8,4,8)})
-        } else {
-            tradingApps.forEach{addNotificationAppRow(root,it.first,it.second,current,false)}
+        listOf("Home", "Journal", "Settings").forEach { n ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                background = rounded(if (active == n.lowercase()) Color.WHITE else card2, 18f)
+                setPadding(4, 4, 4, 4)
+            }
+            val icon = ImageView(this).apply {
+                setImageResource(icons[n]!!)
+                setColorFilter(if (active == n.lowercase()) accent else muted)
+                setPadding(5, 4, 5, 1)
+            }
+            item.addView(icon, LinearLayout.LayoutParams(42, 34))
+            item.addView(label(n, 10f, if (active == n.lowercase()) accent else muted).apply {
+                gravity = Gravity.CENTER
+            })
+            item.setOnClickListener {
+                when (n) {
+                    "Home" -> showHome()
+                    "Journal" -> showJournal()
+                    "Settings" -> showSettings()
+                }
+            }
+            nav.addView(item, LinearLayout.LayoutParams(0, 70).apply {
+                weight = 1f
+                setMargins(4, 0, 4, 0)
+            })
         }
+        root.addView(nav, LinearLayout.LayoutParams(-1, 76))
+    }
 
-        root.addView(label("MY ADDED APPS",12f,muted).apply{setPadding(4,12,0,4)})
-        val customApps=allApps.filter{custom.contains(it.first)}.sortedBy{it.second.lowercase()}
-        if(customApps.isEmpty()){
-            root.addView(label("No manually added app.",15f,muted).apply{setPadding(4,8,4,8)})
-        } else {
-            customApps.forEach{addNotificationAppRow(root,it.first,it.second,current,true)}
-        }
-
-        val add=card()
-        val ar=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        ar.addView(label("＋  Add from installed apps",17f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
-        ar.addView(label("›",28f,muted))
-        add.addView(ar)
-        add.setOnClickListener{showInstalledAppsPicker()}
-        root.addView(add,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,12,0,6)})
-
-        root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
-        addBottom(root,"settings")
+    private fun showJournal() {
+        val root = base()
+        root.addView(label("Journal", 30f, textColor))
+        root.addView(label("Your CandleAlert activity", 15f, muted))
+        val b = card()
+        b.addView(label("Trading journal", 20f, textColor))
+        b.addView(label("Trade notes and performance tracking can be added here.", 14f, muted).apply {
+            setPadding(0, 10, 0, 0)
+        })
+        root.addView(b, LinearLayout.LayoutParams(-1, 0).apply {
+            weight = 1f
+            setMargins(0, 16, 0, 16)
+        })
+        addBottom(root, "journal")
         setContentView(root)
     }
 
-    private fun addNotificationAppRow(root:LinearLayout,pkg:String,name:String,current:String,custom:Boolean){
-        val c=card()
-        val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        r.addView(label(name,16f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
-        if(pkg==current)r.addView(label("✓",22f,green))
-        c.addView(r)
-        c.setOnClickListener{
-            prefs.edit().putString("notification_app_package",pkg).putString("notification_app_label",name).apply()
+    private fun showSettings() {
+        val root = base()
+        root.addView(label("Settings", 30f, textColor))
+        root.addView(label("Customize your alerts", 15f, muted))
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            setPadding(0, 8, 0, 0)
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, 12)
+        }
+
+        val options = listOf(
+            "Timeframe" to "Choose candle duration",
+            "Alert Timing" to "Before, at, or after close",
+            "Market & Sessions" to "Forex, crypto and sessions",
+            "Sleep Hours" to "Quiet period for notifications",
+            "Open App on Notification" to "Open your selected trading app",
+            "Exact Alarm Permission" to "Allow precise background alerts"
+        )
+
+        options.forEach { (name, subtitle) ->
+            val c = card().apply { setPadding(18, 12, 18, 12) }
+            val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            val texts = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            texts.addView(label(name, 18f, textColor))
+            texts.addView(label(subtitle, 13f, muted).apply { setPadding(0, 4, 0, 0) })
+            r.addView(texts, LinearLayout.LayoutParams(0, 68).apply { weight = 1f })
+            r.addView(label("›", 30f, accent))
+            c.addView(r)
+            c.setOnClickListener {
+                when (name) {
+                    "Timeframe" -> chooseTf()
+                    "Alert Timing" -> chooseTiming()
+                    "Market & Sessions" -> chooseMarket()
+                    "Sleep Hours" -> editQuiet()
+                    "Open App on Notification" -> chooseNotificationApp()
+                    "Exact Alarm Permission" -> if (android.os.Build.VERSION.SDK_INT >= 31) {
+                        startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                            data = android.net.Uri.parse("package:$packageName")
+                        })
+                    }
+                }
+            }
+            content.addView(c, LinearLayout.LayoutParams(-1, 88).apply {
+                setMargins(0, 6, 0, 6)
+            })
+        }
+
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
+        addBottom(root, "settings")
+        setContentView(root)
+    }
+
+    private fun wheelDialog(
+        title: String,
+        values: List<String>,
+        selected: Int,
+        onSelected: (Int) -> Unit
+    ) {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(22, 8, 22, 8)
+            background = rounded(card, 28f)
+        }
+        val picker = NumberPicker(this).apply {
+            minValue = 0
+            maxValue = values.lastIndex
+            displayedValues = values.toTypedArray()
+            value = selected.coerceIn(0, values.lastIndex)
+            wrapSelectorWheel = true
+            descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
+        }
+        box.addView(picker, LinearLayout.LayoutParams(-1, 220))
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(box)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Done") { _, _ -> onSelected(picker.value) }
+            .create()
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(rounded(card, 28f))
+    }
+
+    private fun chooseTf() {
+        val values = listOf(
+            "1 Minute  •  M1", "3 Minutes •  M3", "5 Minutes •  M5",
+            "15 Minutes • M15", "30 Minutes • M30", "1 Hour     • H1", "4 Hours    • H4"
+        )
+        val nums = listOf(1, 3, 5, 15, 30, 60, 240)
+        wheelDialog("Timeframe", values, nums.indexOf(prefs.getInt("tf", 5)).coerceAtLeast(0)) { index ->
+            prefs.edit().putInt("tf", nums[index]).apply()
+            Scheduler.scheduleNext(this)
             showSettings()
         }
-        root.addView(c,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,4,0,4)})
     }
 
-    private fun showInstalledAppsPicker(){
-        val root=base()
-        root.addView(label("Add Installed App",28f,textColor))
-        root.addView(label("Select an installed app to add it to your notification app list.",14f,muted).apply{setPadding(0,4,0,12)})
-        val pm=packageManager
-        val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val custom=prefs.getStringSet("custom_notification_apps",emptySet())?.toMutableSet()?:mutableSetOf()
-        val apps=pm.queryIntentActivities(intent,0)
-            .map{it.activityInfo.packageName to it.loadLabel(pm).toString()}
-            .filter{it.first!=packageName}
-            .distinctBy{it.first}
-            .sortedBy{it.second.lowercase()}
-
-        apps.forEach{(pkg,name)->
-            val c=card()
-            val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-            r.addView(label(name,16f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f})
-            r.addView(label(if(custom.contains(pkg))"✓" else "＋",22f,if(custom.contains(pkg))green else muted))
-            c.addView(r)
-            c.setOnClickListener{
-                if(!custom.add(pkg))custom.remove(pkg)
-                prefs.edit().putStringSet("custom_notification_apps",custom).apply()
-                showInstalledAppsPicker()
-            }
-            root.addView(c,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,4,0,4)})
+    private fun chooseTiming() {
+        val items = mutableListOf<String>()
+        val configs = mutableListOf<Pair<Int, Int>>()
+        listOf(10, 30, 45, 60, 120, 180, 300).forEach {
+            items.add("Before Close  •  ${formatOffset(it)}")
+            configs.add(0 to it)
         }
-        root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f})
-        addBottom(root,"settings")
+        items.add("At Candle Close")
+        configs.add(1 to 0)
+        listOf(10, 30, 45, 60, 120, 180, 300).forEach {
+            items.add("After Close   •  ${formatOffset(it)}")
+            configs.add(2 to it)
+        }
+        val current = configs.indexOf(prefs.getInt("mode", 0) to prefs.getInt("offset", 120)).let {
+            if (it >= 0) it else 0
+        }
+        wheelDialog("Alert Timing", items, current) { index ->
+            val (mode, off) = configs[index]
+            prefs.edit().putInt("mode", mode).putInt("offset", off).apply()
+            Scheduler.scheduleNext(this)
+            showSettings()
+        }
+    }
+
+    private fun chooseMarket() {
+        val values = listOf("Forex", "Crypto  •  24/7", "Forex + Crypto")
+        wheelDialog("Market", values, prefs.getInt("market", 0)) { index ->
+            prefs.edit().putInt("market", index).apply()
+            Scheduler.scheduleNext(this)
+            showSessions()
+        }
+    }
+
+    private fun showSessions() {
+        val root = base()
+        root.addView(label("Trading Sessions", 30f, textColor))
+        root.addView(label("Choose one or more sessions for Forex alerts.", 15f, muted).apply {
+            setPadding(0, 4, 0, 12)
+        })
+        val sessions = listOf("Sydney", "Tokyo", "Frankfurt", "London", "New York")
+        val selected = prefs.getStringSet("sessions", sessions.toSet())?.toMutableSet()
+            ?: sessions.toMutableSet()
+
+        sessions.forEach { s ->
+            val c = card().apply { setPadding(18, 10, 18, 10) }
+            val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            r.addView(label(s, 18f, textColor), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+            val sw = Switch(this).apply { isChecked = selected.contains(s) }
+            r.addView(sw)
+            c.addView(r)
+            sw.setOnCheckedChangeListener { _, checked ->
+                if (checked) selected.add(s) else selected.remove(s)
+                prefs.edit().putStringSet("sessions", selected).apply()
+                Scheduler.scheduleNext(this)
+            }
+            root.addView(c, LinearLayout.LayoutParams(-1, 78).apply {
+                setMargins(0, 6, 0, 6)
+            })
+        }
+
+        root.addView(button("Done", true).apply {
+            textSize = 15f
+            setPadding(18, 14, 18, 14)
+            setOnClickListener { showSettings() }
+        }, LinearLayout.LayoutParams(-1, 58).apply {
+            setMargins(0, 10, 0, 8)
+        })
+        root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
+        addBottom(root, "settings")
         setContentView(root)
     }
 
-    private fun chooseTf(){val vals=arrayOf("1 Minute (M1)","3 Minutes (M3)","5 Minutes (M5)","15 Minutes (M15)","30 Minutes (M30)","1 Hour (H1)","4 Hours (H4)");val nums=listOf(1,3,5,15,30,60,240);AlertDialog.Builder(this).setTitle("Timeframe").setSingleChoiceItems(vals,nums.indexOf(prefs.getInt("tf",5))){d,w->prefs.edit().putInt("tf",nums[w]).apply();d.dismiss();Scheduler.scheduleNext(this);showSettings()}.show()}
-    private fun chooseTiming(){
-        val root=base();root.addView(label("Alert Timing",28f,textColor));root.addView(label("Select the alert position relative to candle close.",14f,muted).apply{setPadding(0,4,0,10)})
-        addTimingRow(root,"BEFORE CLOSE",0,listOf(10,30,45,60,120,180,300))
-        addTimingRow(root,"AT CLOSE",1,listOf(0))
-        addTimingRow(root,"AFTER CLOSE",2,listOf(10,30,45,60,120,180,300))
-        val custom=card();val r=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};r.addView(label("Custom seconds",16f,textColor),LinearLayout.LayoutParams(0,52).apply{weight=1f});r.addView(label("›",26f,muted));custom.addView(r);custom.setOnClickListener{customTiming()}
-        root.addView(custom,LinearLayout.LayoutParams(-1,66).apply{setMargins(0,8,0,0)});root.addView(Space(this),LinearLayout.LayoutParams(1,0).apply{weight=1f});addBottom(root,"settings");setContentView(root)
+    private fun editQuiet() {
+        val e = EditText(this).apply {
+            setText(prefs.getString("quiet", "00:00-07:30"))
+            hint = "00:00-07:30"
+            textSize = 18f
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Sleep Hours")
+            .setMessage("No notifications during this period (phone local time).")
+            .setView(e)
+            .setPositiveButton("Save") { _, _ ->
+                prefs.edit().putString("quiet", e.text.toString()).apply()
+                Scheduler.scheduleNext(this)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
-    private fun addTimingRow(root:LinearLayout,title:String,mode:Int,offsets:List<Int>){
-        root.addView(label(title,12f,muted).apply{setPadding(4,8,0,4)});val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        offsets.forEach{off->val selected=prefs.getInt("mode",0)==mode&&prefs.getInt("offset",120)==off;val txt=if(mode==1)"AT CLOSE" else if(off<60)off.toString()+"s" else (off/60).toString()+"m";val b=button(txt,selected);b.textSize=10f;b.setOnClickListener{prefs.edit().putInt("mode",mode).putInt("offset",off).apply();Scheduler.scheduleNext(this);showSettings()};row.addView(b,LinearLayout.LayoutParams(0,46).apply{weight=1f;setMargins(2,0,2,0)})};root.addView(row)
+
+    private fun chooseNotificationApp() {
+        val root = base()
+        root.addView(label("Open App on Notification", 30f, textColor))
+        root.addView(label("Only trading apps are shown. You can also add any installed app manually.", 15f, muted).apply {
+            setPadding(0, 4, 0, 12)
+        })
+
+        val current = prefs.getString("notification_app_package", "") ?: ""
+        val custom = prefs.getStringSet("custom_notification_apps", emptySet()) ?: emptySet()
+
+        val none = card()
+        val nr = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        nr.addView(label("No app", 18f, textColor), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        nr.addView(label(if (current.isEmpty()) "✓" else "", 24f, accent))
+        none.addView(nr)
+        none.setOnClickListener {
+            prefs.edit().remove("notification_app_package").remove("notification_app_label").apply()
+            showSettings()
+        }
+        root.addView(none, LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 6, 0, 10) })
+
+        val pm = packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val allApps = pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .filter { it.first != packageName }
+            .distinctBy { it.first }
+
+        val tradingWords = listOf(
+            "metatrader", "meta trader", "tradingview", "trading view", "ctrader", "c trader",
+            "ninjatrader", "thinktrader", "trading 212", "ibkr", "interactive brokers", "etoro",
+            "binance", "bybit", "okx", "kraken", "coinbase", "kucoin", "bitget", "mexc", "deriv",
+            "exness", "xm trading", "alpari", "fxtm", "oanda", "ic markets", "pepperstone",
+            "eightcap", "admirals", "tickmill", "fbs", "roboforex", "fxpro", "xtb", "capital.com",
+            "trading", "trade", "trader", "broker", "forex", "crypto", "exchange", "invest"
+        )
+        val tradingApps = allApps.filter { (_, name) ->
+            tradingWords.any { name.lowercase().contains(it) }
+        }.sortedWith(compareBy({
+            !(it.second.contains("MetaTrader", true) || it.second.contains("TradingView", true))
+        }, { it.second.lowercase() }))
+
+        root.addView(label("TRADING APPS", 12f, muted).apply { setPadding(4, 6, 0, 4) })
+        tradingApps.forEach { addNotificationAppRow(root, it.first, it.second, current) }
+
+        root.addView(label("MY ADDED APPS", 12f, muted).apply { setPadding(4, 14, 0, 4) })
+        allApps.filter { custom.contains(it.first) }.sortedBy { it.second.lowercase() }
+            .forEach { addNotificationAppRow(root, it.first, it.second, current) }
+
+        root.addView(card().apply {
+            val ar = LinearLayout(this@MainActivity).apply { gravity = Gravity.CENTER_VERTICAL }
+            ar.addView(label("＋  Add from installed apps", 18f, textColor), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+            ar.addView(label("›", 30f, accent))
+            addView(ar)
+            setOnClickListener { showInstalledAppsPicker() }
+        }, LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 12, 0, 6) })
+
+        root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
+        addBottom(root, "settings")
+        setContentView(root)
     }
-    private fun customTiming(){
-        val e=EditText(this).apply{inputType=2;setText(prefs.getInt("offset",120).toString());hint="Seconds"}
-        AlertDialog.Builder(this).setTitle("Custom seconds").setMessage("Enter seconds, then choose Before or After.").setView(e)
-            .setPositiveButton("Before"){_,_->saveCustomTiming(e.text.toString(),0)}
-            .setNeutralButton("After"){_,_->saveCustomTiming(e.text.toString(),2)}.setNegativeButton("Cancel",null).show()
+
+    private fun addNotificationAppRow(root: LinearLayout, pkg: String, name: String, current: String) {
+        val c = card()
+        val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        r.addView(label(name, 17f, textColor), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        if (pkg == current) r.addView(label("✓", 24f, accent))
+        c.addView(r)
+        c.setOnClickListener {
+            prefs.edit().putString("notification_app_package", pkg).putString("notification_app_label", name).apply()
+            showSettings()
+        }
+        root.addView(c, LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 4, 0, 4) })
     }
-    private fun saveCustomTiming(v:String,mode:Int){val sec=v.toIntOrNull()?.coerceIn(1,86400)?:return;prefs.edit().putInt("mode",mode).putInt("offset",sec).apply();Scheduler.scheduleNext(this);showSettings()}
-    
-private fun chooseMarket(){val vals=arrayOf("Forex","Crypto (24/7)","Forex + Crypto");AlertDialog.Builder(this).setTitle("Market").setSingleChoiceItems(vals,prefs.getInt("market",0)){d,w->prefs.edit().putInt("market",w).apply();d.dismiss();Scheduler.scheduleNext(this)}.show()}
-    private fun editQuiet(){val e=EditText(this).apply{setText(prefs.getString("quiet","00:00-07:30"));hint="00:00-07:30"};AlertDialog.Builder(this).setTitle("Sleep Hours").setMessage("No notifications during this period (phone local time).").setView(e).setPositiveButton("Save"){_,_->prefs.edit().putString("quiet",e.text.toString()).apply();Scheduler.scheduleNext(this)}.setNegativeButton("Cancel",null).show()}
+
+    private fun showInstalledAppsPicker() {
+        val root = base()
+        root.addView(label("Add Installed App", 30f, textColor))
+        root.addView(label("Select an installed app to add it to your notification app list.", 15f, muted).apply {
+            setPadding(0, 4, 0, 12)
+        })
+        val pm = packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val custom = prefs.getStringSet("custom_notification_apps", emptySet())?.toMutableSet()
+            ?: mutableSetOf()
+        val apps = pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .filter { it.first != packageName }
+            .distinctBy { it.first }
+            .sortedBy { it.second.lowercase() }
+
+        val scroll = ScrollView(this)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, 16)
+        }
+        apps.forEach { (pkg, name) ->
+            val c = card()
+            val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            r.addView(label(name, 17f, textColor), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+            r.addView(label(if (custom.contains(pkg)) "✓" else "＋", 24f, if (custom.contains(pkg)) accent else muted))
+            c.addView(r)
+            c.setOnClickListener {
+                if (!custom.add(pkg)) custom.remove(pkg)
+                prefs.edit().putStringSet("custom_notification_apps", custom).apply()
+                showInstalledAppsPicker()
+            }
+            content.addView(c, LinearLayout.LayoutParams(-1, 76).apply { setMargins(0, 4, 0, 4) })
+        }
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
+        addBottom(root, "settings")
+        setContentView(root)
+    }
 }
