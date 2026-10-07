@@ -59,6 +59,8 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(18, 14 + bars.top, 18, 8 + bars.bottom)
+            window.statusBarColor = bg
+            window.navigationBarColor = bg
             insets
         }
         return root
@@ -313,7 +315,7 @@ class MainActivity : AppCompatActivity() {
         val options = listOf(
             "Symbol" to "Choose the instrument",
             "Timeframe" to "Choose candle duration",
-            "Open Market" to "Set your broker candle candle start time",
+            "Open Market" to "Set your broker candle start time",
             "Alert Timing" to "Before, at, or after close",
             "Market & Sessions" to "Forex, crypto and sessions",
             "Sleep Hours" to "Quiet period for notifications",
