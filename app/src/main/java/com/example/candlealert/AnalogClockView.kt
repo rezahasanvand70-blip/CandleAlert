@@ -52,10 +52,20 @@ class AnalogClockView(
         val cy = height / 2f
         val radius = size * 0.43f
 
-        face.color = 0xFFF8FCFF.toInt()
-        canvas.drawCircle(cx, cy, radius + 15f, face)
+        face.shader = android.graphics.LinearGradient(
+            cx - radius, cy - radius, cx + radius, cy + radius,
+            intArrayOf(0xFFFFFFFF.toInt(), 0xFFEAF8FF.toInt(), 0xFFF8FDFF.toInt()),
+            null, android.graphics.Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(cx, cy, radius + 17f, face)
+        face.shader = null
         face.color = 0xFFEAF6FF.toInt()
         canvas.drawCircle(cx, cy, radius, face)
+        face.style = Paint.Style.STROKE
+        face.strokeWidth = 1.5f
+        face.color = 0x66FFFFFF
+        canvas.drawCircle(cx, cy, radius - 1f, face)
+        face.style = Paint.Style.FILL
 
         // Crystal-water progress ring: one full revolution per selected timeframe.
         val nowMs = System.currentTimeMillis()
@@ -65,11 +75,13 @@ class AnalogClockView(
         val ringRadius = radius + 7f
 
         ringTrack.color = 0xFFD4EAF7.toInt()
-        ringTrack.strokeWidth = 12f
+        ringTrack.strokeWidth = 13f
         canvas.drawCircle(cx, cy, ringRadius, ringTrack)
 
         ring.color = accent
-        ring.strokeWidth = 12f
+        ring.strokeWidth = 13f
+        ring.setShadowLayer(10f, 0f, 0f, 0x5542C9E8)
+        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
         val sweep = progress * 360f
         canvas.drawArc(
             RectF(
@@ -83,6 +95,7 @@ class AnalogClockView(
             false,
             ring
         )
+        ring.clearShadowLayer()
 
         // 60 minute/second marks.
         for (i in 0 until 60) {
