@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity() {
             background = rounded(card, 26f)
         }
         val clock = AnalogClockView(this, accent, textColor, muted) {
-            prefs.getInt("tf", 5).coerceAtLeast(1)
+            prefs.getInt("tf", 60).coerceAtLeast(1)
         }
         clockCard.addView(clock, LinearLayout.LayoutParams(-1, 340))
         clockCard.addView(label("LOCAL TIME  •  CANDLE PROGRESS", 11f, muted).apply {
@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity() {
         }
         next.addView(
             label(
-                "TIMEFRAME  $tfText    •    $market    •    " + timingSummary(),
+                "SYMBOL  ${(prefs.getString("symbol","XAUUSD") ?: "XAUUSD")}    •    TIMEFRAME  $tfText    •    $market    •    " + timingSummary(),
                 12f,
                 textColor
             ).apply { setPadding(0, 10, 0, 0) }
@@ -226,8 +226,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun timingSummary(): String {
-        val mode = prefs.getInt("mode", 0)
-        val off = prefs.getInt("offset", 120)
+        val mode = prefs.getInt("mode", 1)
+        val off = prefs.getInt("offset", 0)
         if (mode == 1 || off == 0) return "At close"
         return (if (mode == 0) "Before " else "After ") + formatOffset(off)
     }
@@ -313,7 +313,7 @@ class MainActivity : AppCompatActivity() {
         val options = listOf(
             "Symbol" to "Choose the instrument",
             "Timeframe" to "Choose candle duration",
-            "Open Market" to "Set your broker candle start time",
+            "Open Market" to "Set your broker candle candle start time",
             "Alert Timing" to "Before, at, or after close",
             "Market & Sessions" to "Forex, crypto and sessions",
             "Sleep Hours" to "Quiet period for notifications",
