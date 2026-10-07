@@ -20,15 +20,16 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
 
-    private val bg = Color.rgb(247, 249, 252)
-    private val cardColor = Color.WHITE
-    private val soft = Color.rgb(242, 246, 250)
+    private val darkMode get() = when (prefs.getString("theme_mode", "light")) { "dark" -> true; "system" -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
+    private val bg get() = if (darkMode) Color.rgb(18, 22, 28) else Color.rgb(247, 249, 252)
+    private val cardColor get() = if (darkMode) Color.rgb(28, 34, 42) else Color.WHITE
+    private val soft get() = if (darkMode) Color.rgb(36, 43, 53) else Color.rgb(242, 246, 250)
     private val accent get() = Color.parseColor(prefs.getString("theme_accent", "#1677FF") ?: "#1677FF")
     private val green = Color.rgb(25, 171, 111)
     private val red = Color.rgb(220, 75, 88)
-    private val textColor = Color.rgb(24, 32, 43)
-    private val muted = Color.rgb(105, 116, 130)
-    private val line = Color.rgb(224, 229, 236)
+    private val textColor get() = if (darkMode) Color.rgb(241, 245, 249) else Color.rgb(24, 32, 43)
+    private val muted get() = if (darkMode) Color.rgb(166, 177, 190) else Color.rgb(105, 116, 130)
+    private val line get() = if (darkMode) Color.rgb(55, 64, 76) else Color.rgb(224, 229, 236)
 
     private val handler = Handler(Looper.getMainLooper())
     private var countdownView: TextView? = null
@@ -43,6 +44,7 @@ class MainActivity : AppCompatActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 23) {
             window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         }
+        applyThemeMode(prefs.getString("theme_mode", "light") ?: "light")
         showHome()
         Scheduler.scheduleNext(this)
         if (android.os.Build.VERSION.SDK_INT >= 33) {
