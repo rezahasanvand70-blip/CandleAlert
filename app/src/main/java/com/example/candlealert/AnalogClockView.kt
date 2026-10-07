@@ -34,11 +34,11 @@ class AnalogClockView(
     )
 
     private val sessions = listOf(
-        Session("Sydney", "Australia/Sydney", 22, 7, 0xFF7C5CFC.toInt()),
-        Session("Tokyo", "Asia/Tokyo", 0, 9, 0xFF00A6A6.toInt()),
-        Session("Frankfurt", "Europe/Berlin", 7, 16, 0xFFFFA62B.toInt()),
-        Session("London", "Europe/London", 8, 17, 0xFF1687FF.toInt()),
-        Session("New York", "America/New_York", 13, 22, 0xFFEF5DA8.toInt())
+        Session("Sydney", "Australia/Sydney", 22, 7, 0xFF1677FF.toInt()),
+        Session("Tokyo", "Asia/Tokyo", 0, 9, 0xFF1677FF.toInt()),
+        Session("Frankfurt", "Europe/Berlin", 7, 16, 0xFF1677FF.toInt()),
+        Session("London", "Europe/London", 8, 17, 0xFF1677FF.toInt()),
+        Session("New York", "America/New_York", 13, 22, 0xFF1677FF.toInt())
     )
 
     private val face = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -94,9 +94,9 @@ class AnalogClockView(
             .getStringSet("sessions", sessions.map { it.name }.toSet())
             ?: emptySet())
 
-        val bandBase = radius * 0.94f
-        val bandGap = radius * 0.043f
-        val bandWidth = radius * 0.028f
+        val bandBase = radius * 0.82f
+        val bandGap = radius * 0.095f
+        val bandWidth = radius * 0.065f
 
         sessions.forEachIndexed { index, session ->
             val rr = bandBase - index * bandGap
@@ -106,8 +106,8 @@ class AnalogClockView(
         // 24 hour face.
         for (i in 0 until 24) {
             val angle = Math.toRadians(i * 15.0 - 90.0)
-            val outer = radius - radius * 0.215f
-            val inner = if (i % 3 == 0) radius - radius * 0.275f else radius - radius * 0.245f
+            val outer = radius - radius * 0.145f
+            val inner = if (i % 3 == 0) radius - radius * 0.195f else radius - radius * 0.175f
             tick.color = if (i % 3 == 0) primary else muted
             tick.alpha = if (i % 3 == 0) 190 else 80
             tick.strokeWidth = if (i % 3 == 0) 2.6f else 1.1f
@@ -126,7 +126,7 @@ class AnalogClockView(
         number.alpha = 225
         for (h in 0 until 24) {
             val angle = Math.toRadians(h * 15.0 - 90.0)
-            val nr = radius * 0.64f
+            val nr = radius * 0.34f
             val label = h.toString()
             canvas.drawText(
                 label,
@@ -155,7 +155,7 @@ class AnalogClockView(
         canvas.drawCircle(cx, cy, 3.5f, center)
 
         digital.color = primary
-        digital.textSize = radius * 0.105f
+        digital.textSize = radius * 0.095f
         val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
         canvas.drawText(timeText, cx, cy + radius * 0.47f, digital)
 
@@ -166,13 +166,12 @@ class AnalogClockView(
             val local = sessionLocalInterval(session, now)
             val mid = midpointAngle(local.first, local.second)
             val a = Math.toRadians(mid - 90.0)
-            labelPaint.color = if (selected.contains(session.name)) session.color else muted
-            labelPaint.alpha = if (selected.contains(session.name)) 230 else 85
-            val lr = rr
+            labelPaint.color = session.color
+            labelPaint.alpha = if (selected.contains(session.name)) 245 else 55
             canvas.drawText(
-                session.name.take(1),
-                cx + cos(a).toFloat() * lr,
-                cy + sin(a).toFloat() * lr - (labelPaint.ascent() + labelPaint.descent()) / 2f,
+                session.name,
+                cx + cos(a).toFloat() * rr,
+                cy + sin(a).toFloat() * rr - (labelPaint.ascent() + labelPaint.descent()) / 2f,
                 labelPaint
             )
         }
@@ -254,9 +253,9 @@ class AnalogClockView(
         val size = min(width, height).toFloat()
         val radius = (size / 2f - 18f).coerceAtLeast(1f)
 
-        val bandBase = radius * 0.94f
-        val bandGap = radius * 0.043f
-        val bandWidth = radius * 0.028f
+        val bandBase = radius * 0.82f
+        val bandGap = radius * 0.095f
+        val bandWidth = radius * 0.065f
 
         var hitIndex = -1
         var hitDistance = Float.MAX_VALUE
