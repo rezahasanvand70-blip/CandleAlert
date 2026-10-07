@@ -16,6 +16,7 @@ class AnalogClockView(
     private val accent: Int,
     private val primary: Int,
     private val muted: Int,
+    private val darkTheme: Boolean,
     private val timeframeMinutesProvider: () -> Int
 ) : View(context) {
 
@@ -54,16 +55,17 @@ class AnalogClockView(
 
         face.shader = android.graphics.LinearGradient(
             cx - radius, cy - radius, cx + radius, cy + radius,
-            intArrayOf(0xFFFFFFFF.toInt(), 0xFFEAF8FF.toInt(), 0xFFF8FDFF.toInt()),
+            if (darkTheme) intArrayOf(0xFF18354A.toInt(), 0xFF0F293C.toInt(), 0xFF122D43.toInt())
+            else intArrayOf(0xFFFFFFFF.toInt(), 0xFFEAF8FF.toInt(), 0xFFF8FDFF.toInt()),
             null, android.graphics.Shader.TileMode.CLAMP
         )
         canvas.drawCircle(cx, cy, radius + 17f, face)
         face.shader = null
-        face.color = 0xFFEAF6FF.toInt()
+        face.color = if (darkTheme) 0xFF10283B.toInt() else 0xFFEAF6FF.toInt()
         canvas.drawCircle(cx, cy, radius, face)
         face.style = Paint.Style.STROKE
         face.strokeWidth = 1.5f
-        face.color = 0x66FFFFFF
+        face.color = if (darkTheme) 0x88FFFFFF.toInt() else 0x66FFFFFF
         canvas.drawCircle(cx, cy, radius - 1f, face)
         face.style = Paint.Style.FILL
 
@@ -74,7 +76,7 @@ class AnalogClockView(
         val progress = elapsedMs.toFloat() / (tfSeconds * 1000f)
         val ringRadius = radius + 7f
 
-        ringTrack.color = 0xFFD4EAF7.toInt()
+        ringTrack.color = if (darkTheme) 0xFF29475B.toInt() else 0xFFD4EAF7.toInt()
         ringTrack.strokeWidth = 13f
         canvas.drawCircle(cx, cy, ringRadius, ringTrack)
 
@@ -102,7 +104,7 @@ class AnalogClockView(
             val angle = Math.toRadians(i * 6.0 - 90.0)
             val outer = radius - 8f
             val inner = if (i % 5 == 0) radius - 21f else radius - 15f
-            tick.color = if (i % 5 == 0) primary else muted
+            tick.color = if (i % 5 == 0) (if (darkTheme) 0xFFF1F8FF.toInt() else primary) else (if (darkTheme) 0xFFB4C9DA.toInt() else muted)
             tick.alpha = if (i % 5 == 0) 210 else 90
             tick.strokeWidth = if (i % 5 == 0) 3.2f else 1.4f
             canvas.drawLine(
@@ -116,7 +118,7 @@ class AnalogClockView(
 
         number.textAlign = Paint.Align.CENTER
         number.textSize = radius * 0.12f
-        number.color = primary
+        number.color = if (darkTheme) 0xFFF1F8FF.toInt() else primary
         number.alpha = 225
         for (h in 1..12) {
             val angle = Math.toRadians(h * 30.0 - 90.0)
@@ -153,7 +155,7 @@ class AnalogClockView(
         center.color = accent
         canvas.drawCircle(cx, cy, 3.5f, center)
 
-        digital.color = primary
+        digital.color = if (darkTheme) 0xFFF1F8FF.toInt() else primary
         digital.textSize = radius * 0.145f
         val text = String.format(
             java.util.Locale.getDefault(),
