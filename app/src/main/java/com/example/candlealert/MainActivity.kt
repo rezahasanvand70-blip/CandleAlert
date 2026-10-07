@@ -322,7 +322,7 @@ class MainActivity : AppCompatActivity() {
                     setColor(if (selected) Color.rgb(235, 243, 255) else cardColor)
                     cornerRadius = 16f
                 }
-                minHeight = 62
+                minimumHeight = 62
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
