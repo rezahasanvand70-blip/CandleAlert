@@ -3,6 +3,10 @@ package com.example.candlealert
 import android.Manifest
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.view.View
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -50,24 +54,72 @@ class MainActivity : AppCompatActivity() {
     private fun button(s:String,selected:Boolean=false)=TextView(this).apply{text=s;textSize=14f;setTextColor(if(selected)bg else textColor);gravity=Gravity.CENTER;setPadding(10,8,10,8);background=rounded(if(selected)green else card,28f)}
 
     private fun showHome(){
-        val root=base();val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(ImageView(this).apply{setImageResource(android.R.drawable.ic_popup_reminder);setPadding(8,8,8,8)},LinearLayout.LayoutParams(46,46));head.addView(label("Candle",24f,textColor));head.addView(label("Alert",24f,green))
-        val gear=label("⚙",25f,textColor).apply{gravity=Gravity.CENTER};head.addView(gear,LinearLayout.LayoutParams(0,52).apply{weight=1f});gear.setOnClickListener{showSettings()};root.addView(head)
-        val status=card();val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        row.addView(label("●",25f,if(prefs.getBoolean("enabled",true))green else red));row.addView(label(if(prefs.getBoolean("enabled",true))"  Monitoring" else "  Alerts paused",19f,textColor),LinearLayout.LayoutParams(0,50).apply{weight=1f})
-        val sw=Switch(this).apply{isChecked=prefs.getBoolean("enabled",true)};row.addView(sw);status.addView(row);status.addView(label(if(sw.isChecked)"Alerts are active" else "Turn on to receive alerts",13f,muted))
-        sw.setOnCheckedChangeListener{_,v->prefs.edit().putBoolean("enabled",v).apply();Scheduler.scheduleNext(this)};root.addView(status,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,16,0,12)})
-        val mr=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};listOf("Forex","Crypto","Both").forEachIndexed{idx,s->val b=button(s,prefs.getInt("market",0)==idx);b.setOnClickListener{prefs.edit().putInt("market",idx).apply();Scheduler.scheduleNext(this);showHome()};mr.addView(b,LinearLayout.LayoutParams(0,52).apply{weight=1f;setMargins(3,0,3,0)})};root.addView(mr)
-        val sessions=card();sessions.addView(label("Active Sessions",16f,textColor));val sr=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};val active=prefs.getStringSet("sessions",setOf("Sydney","Tokyo","Frankfurt","London","New York"))?:emptySet()
-        listOf("Sydney","Tokyo","Frankfurt","London","New York").forEach{session->val b=button(session,active.contains(session));b.textSize=10f;b.setOnClickListener{val n=active.toMutableSet();if(!n.add(session))n.remove(session);prefs.edit().putStringSet("sessions",n).apply();showHome()};sr.addView(b,LinearLayout.LayoutParams(0,44).apply{weight=1f;setMargins(2,0,2,0)})}
-        sessions.addView(sr,LinearLayout.LayoutParams(-1,50));root.addView(sessions,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,12,0,12)})
-        val next=card();next.addView(label("NEXT ALERT",13f,muted))
-        countdownView=label("Calculating…",28f,green).apply{setPadding(0,6,0,0)};next.addView(countdownView)
-        nextDetailsView=label("Checking schedule…",13f,muted).apply{setPadding(0,4,0,0)};next.addView(nextDetailsView)
-        val tf=prefs.getInt("tf",5);val tfText=if(tf>=60)(tf/60).toString()+"H" else tf.toString()+"M"
-        next.addView(label("Timeframe  "+tfText+"   •   "+timingSummary(),13f,textColor).apply{setPadding(0,12,0,0)})
-        next.addView(label("▂▃▅▄▆▃▇▅▆▇",24f,green).apply{gravity=Gravity.CENTER;setPadding(0,12,0,2)})
-        root.addView(next,LinearLayout.LayoutParams(-1,0).apply{weight=1f;setMargins(0,0,0,8)});addBottom(root,"home");setContentView(root);updateCountdown()}
+        val root=base()
+
+        val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+        head.addView(ImageView(this).apply{
+            setImageResource(android.R.drawable.ic_popup_reminder)
+            setPadding(8,8,8,8)
+        },LinearLayout.LayoutParams(46,46))
+        head.addView(label("Candle",24f,textColor))
+        head.addView(label("Alert",24f,green))
+        val gear=label("⚙",25f,textColor).apply{gravity=Gravity.CENTER}
+        head.addView(gear,LinearLayout.LayoutParams(0,52).apply{weight=1f})
+        gear.setOnClickListener{showSettings()}
+        root.addView(head)
+
+        val clockCard=card().apply{setPadding(12,12,12,14)}
+        val clock=AnalogClockView(this,green,textColor,muted)
+        clockCard.addView(clock,LinearLayout.LayoutParams(-1,260))
+        val digital=label(SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date()),22f,textColor).apply{
+            gravity=Gravity.CENTER
+            typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)
+            setPadding(0,2,0,0)
+        }
+        clockCard.addView(digital)
+        clockCard.addView(label("LOCAL TIME",10f,muted).apply{gravity=Gravity.CENTER;setPadding(0,2,0,4)})
+        root.addView(clockCard,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,10,0,10)})
+
+        val status=card()
+        val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+        row.addView(label("●",22f,if(prefs.getBoolean("enabled",true))green else red))
+        row.addView(label(if(prefs.getBoolean("enabled",true))"  ALERT ACTIVE" else "  ALERTS PAUSED",16f,textColor),LinearLayout.LayoutParams(0,48).apply{weight=1f})
+        val sw=Switch(this).apply{isChecked=prefs.getBoolean("enabled",true)}
+        row.addView(sw)
+        status.addView(row)
+        status.addView(label(if(sw.isChecked)"Monitoring your selected schedule" else "Turn on to receive alerts",12f,muted))
+        sw.setOnCheckedChangeListener{_,v->prefs.edit().putBoolean("enabled",v).apply();Scheduler.scheduleNext(this);showHome()}
+        root.addView(status,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,8)})
+
+        val next=card()
+        next.addView(label("NEXT ALERT",11f,muted))
+        countdownView=label("Calculating…",30f,green).apply{
+            setPadding(0,5,0,0)
+            typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)
+        }
+        next.addView(countdownView)
+        nextDetailsView=label("Checking schedule…",12f,muted).apply{setPadding(0,2,0,0)}
+        next.addView(nextDetailsView)
+
+        val tf=prefs.getInt("tf",5)
+        val tfText=if(tf>=60)(tf/60).toString()+"H" else tf.toString()+"M"
+        val market=when(prefs.getInt("market",0)){0->"Forex";1->"Crypto";else->"Both"}
+        next.addView(label("TIMEFRAME  $tfText    •    $market    •    "+timingSummary(),12f,textColor).apply{setPadding(0,10,0,0)})
+        root.addView(next,LinearLayout.LayoutParams(-1,0).apply{weight=1f;setMargins(0,0,0,8)})
+
+        addBottom(root,"home")
+        setContentView(root)
+
+        val digitalTicker=object:Runnable{
+            override fun run(){
+                if(isFinishing)return
+                digital.text=SimpleDateFormat("HH:mm:ss",Locale.getDefault()).format(Date())
+                handler.postDelayed(this,1000)
+            }
+        }
+        handler.post(digitalTicker)
+        updateCountdown()
+    }
 
     private fun updateCountdown(){
         val run=object:Runnable{override fun run(){
