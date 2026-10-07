@@ -70,15 +70,30 @@ object Scheduler {
                 val open = marketOpen(trigger, c)
 
                 if (!quiet && open) {
-                    if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) return
-                    runCatching {
-                        am.setExactAndAllowWhileIdle(
-                            AlarmManager.RTC_WAKEUP,
-                            trigger * 1000,
-                            pi
-                        )
-                    }
-                    return
+                    val triggerMs = trigger * 1000
+                    val scheduled = runCatching {
+                        if (Build.VERSION.SDK_INT >= 31 && am.canScheduleExactAlarms()) {
+                            val show = PendingIntent.getActivity(
+                                c, 99,
+                                Intent(c, MainActivity::class.java),
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            )
+                            am.setAlarmClock(
+                                AlarmManager.AlarmClockInfo(triggerMs, show),
+                                pi
+                            )
+                            true
+                        } else {
+                            am.setAndAllowWhileIdle(
+                                AlarmManager.RTC_WAKEUP,
+                                triggerMs,
+                                pi
+                            )
+                            true
+                        }
+                    }.getOrDefault(false)
+
+                    if (scheduled) return
                 }
             }
 
