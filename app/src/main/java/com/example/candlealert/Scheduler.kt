@@ -9,6 +9,31 @@ import java.util.concurrent.Executors
 object Scheduler {
     private val executor = Executors.newSingleThreadExecutor()
 
+    fun nextTrigger(c: Context): Long? {
+        val p=c.getSharedPreferences("prefs",0)
+        if(!p.getBoolean("enabled",true)) return null
+        val now=java.time.Instant.now().epochSecond
+        val tf=p.getInt("tf",5).coerceAtLeast(1)
+        val period=tf*60L
+        val mode=p.getInt("mode",0)
+        val off=p.getInt("offset",0).coerceAtLeast(0)
+        var close=((now/period)+1)*period
+        repeat(10000){
+            val trigger=when(mode){0->close-off;2->close+off;else->close}
+            if(trigger>now){
+                val z=java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochSecond(trigger),java.time.ZoneId.systemDefault())
+                if(!inQuiet(z.toLocalDateTime(),p.getString("quiet","00:00-07:30")?:"00:00-07:30") && marketOpen(trigger,c)) return trigger
+            }
+            close+=period
+        }
+        return null
+    }
+
+    fun nextStatus(c: Context): String {
+        if(!c.getSharedPreferences("prefs",0).getBoolean("enabled",true)) return "Alerts paused"
+        return if(nextTrigger(c)!=null) "Scheduled" else "No eligible alert"
+    }
+
     fun scheduleNext(c: Context) {
         val app = c.applicationContext
         executor.execute { scheduleNextInternal(app) }
