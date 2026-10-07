@@ -605,4 +605,3 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
     }
 }
-\n
