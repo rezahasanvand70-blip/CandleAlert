@@ -52,6 +52,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun applyFreshInstallDefaults() {
+        val e = prefs.edit()
+        if (!prefs.contains("symbol")) e.putString("symbol", "XAUUSD")
+        if (!prefs.contains("tf")) e.putInt("tf", 60)
+        if (!prefs.contains("mode")) e.putInt("mode", 1)
+        if (!prefs.contains("offset")) e.putInt("offset", 0)
+        if (!prefs.contains("open_market")) e.putString("open_market", "00:00")
+        e.apply()
+
+        val migrated = prefs.getBoolean("defaults_migrated_v2", false)
+        if (!migrated) {
+            val symbol = prefs.getString("symbol", "XAUUSD") ?: "XAUUSD"
+            val tf = prefs.getInt("tf", 60)
+            val mode = prefs.getInt("mode", 1)
+            val offset = prefs.getInt("offset", 0)
+            if (symbol == "EURUSD" && tf == 5 && mode == 0 && offset == 120) {
+                prefs.edit()
+                    .putString("symbol", "XAUUSD")
+                    .putInt("tf", 60)
+                    .putInt("mode", 1)
+                    .putInt("offset", 0)
+                    .apply()
+            }
+            prefs.edit().putBoolean("defaults_migrated_v2", true).apply()
+        }
+    }
+
     override fun onDestroy() {
         ticker?.let { handler.removeCallbacks(it) }
         super.onDestroy()
