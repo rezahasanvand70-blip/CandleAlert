@@ -236,7 +236,7 @@ class MainActivity : AppCompatActivity() {
         content.addView(header)
 
         // The clock uses the available content width so it never clips against root padding.
-        val clockSize = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt() - 36
+        val clockSize = resources.displayMetrics.widthPixels - dp(36)
         val clock = AnalogClockView(
             this,
             accent,
