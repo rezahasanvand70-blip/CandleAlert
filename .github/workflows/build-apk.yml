@@ -22,7 +22,7 @@ jobs:
         run: gradle assembleDebug --stacktrace
       - name: Print debug OAuth certificate fingerprint
         run: |
-          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep -E "SHA1:|SHA256:"
+          gradle signingReport | grep -E "Variant: debug|SHA1:|SHA-1:"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
