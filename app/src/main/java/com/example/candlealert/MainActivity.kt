@@ -364,10 +364,10 @@ class MainActivity : AppCompatActivity() {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(4, 4, 4, 4)
+            setPadding(6, 6, 6, 6)
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(cardColor)
-                cornerRadius = 22f
+                cornerRadius = 24f
                 setStroke(1, line)
             }
             elevation = 2f
@@ -379,12 +379,12 @@ class MainActivity : AppCompatActivity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(8, 6, 8, 6)
+                setPadding(8, 7, 8, 7)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(if (selected) Color.rgb(235, 243, 255) else cardColor)
-                    cornerRadius = 16f
+                    cornerRadius = 18f
                 }
-                minimumHeight = 78
+                minimumHeight = 88
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
@@ -398,14 +398,15 @@ class MainActivity : AppCompatActivity() {
                 setColorFilter(if (selected) accent else muted)
                 setPadding(4, 3, 4, 1)
             }
-            item.addView(icon, LinearLayout.LayoutParams(46, 38))
-            item.addView(text(name, 12f, if (selected) accent else muted).apply {
+            item.addView(icon, LinearLayout.LayoutParams(50, 44))
+            item.addView(text(name, 13f, if (selected) accent else muted).apply {
                 gravity = Gravity.CENTER
                 typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 3, 0, 0)
             })
-            nav.addView(item, LinearLayout.LayoutParams(0, 78).apply { weight = 1f; setMargins(5, 0, 5, 0) })
+            nav.addView(item, LinearLayout.LayoutParams(0, 90).apply { weight = 1f; setMargins(5, 0, 5, 0) })
         }
-        root.addView(nav, LinearLayout.LayoutParams(-1, 88))
+        root.addView(nav, LinearLayout.LayoutParams(-1, 100))
     }
 
     private fun showJournal() {
