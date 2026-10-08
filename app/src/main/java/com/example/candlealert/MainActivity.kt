@@ -409,16 +409,225 @@ class MainActivity : AppCompatActivity() {
         root.addView(nav, LinearLayout.LayoutParams(-1, 100))
     }
 
+
+    private data class JournalTrade(
+        val id: Long,
+        var symbol: String,
+        var direction: String,
+        var entryTime: Long,
+        var exitTime: Long?,
+        var entry: String,
+        var sl: String,
+        var tp: String,
+        var exit: String,
+        var volume: String,
+        var notes: String
+    )
+
+    private fun loadTrades(): MutableList<JournalTrade> {
+        val raw = prefs.getString("journal_trades_v1", "[]") ?: "[]"
+        val result = mutableListOf<JournalTrade>()
+        try {
+            val arr = org.json.JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                result.add(JournalTrade(
+                    o.optLong("id"), o.optString("symbol", "XAUUSD"),
+                    o.optString("direction", "BUY"),
+                    o.optLong("entryTime", System.currentTimeMillis()),
+                    if (o.has("exitTime") && !o.isNull("exitTime")) o.optLong("exitTime") else null,
+                    o.optString("entry"), o.optString("sl"), o.optString("tp"),
+                    o.optString("exit"), o.optString("volume"), o.optString("notes")
+                ))
+            }
+        } catch (_: Exception) { }
+        return result.sortedByDescending { it.entryTime }
+    }
+
+    private fun saveTrades(trades: List<JournalTrade>) {
+        val arr = org.json.JSONArray()
+        trades.forEach { t -> arr.put(org.json.JSONObject().apply {
+            put("id", t.id); put("symbol", t.symbol); put("direction", t.direction)
+            put("entryTime", t.entryTime)
+            if (t.exitTime == null) put("exitTime", org.json.JSONObject.NULL) else put("exitTime", t.exitTime)
+            put("entry", t.entry); put("sl", t.sl); put("tp", t.tp); put("exit", t.exit)
+            put("volume", t.volume); put("notes", t.notes)
+        }) }
+        prefs.edit().putString("journal_trades_v1", arr.toString()).apply()
+    }
+
+    private fun formatTradeDateTime(ms: Long): String =
+        java.text.SimpleDateFormat("yyyy-MM-dd  HH:mm:ss", Locale.getDefault()).format(java.util.Date(ms))
+
+    private fun formatDuration(start: Long, end: Long?): String {
+        if (end == null) return "Open"
+        val total = ((end - start).coerceAtLeast(0L)) / 1000L
+        val d = total / 86400; val h = (total % 86400) / 3600
+        val m = (total % 3600) / 60; val s = total % 60
+        return when {
+            d > 0 -> String.format(Locale.getDefault(), "%dd %02dh %02dm", d, h, m)
+            h > 0 -> String.format(Locale.getDefault(), "%dh %02dm %02ds", h, m, s)
+            else -> String.format(Locale.getDefault(), "%dm %02ds", m, s)
+        }
+    }
+
+    private fun pickTradeDateTime(title: String, initial: Long, onPicked: (Long) -> Unit) {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = initial }
+        android.app.DatePickerDialog(this, { _, year, month, day ->
+            android.app.TimePickerDialog(this, { _, hour, minute ->
+                val chosen = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.YEAR, year); set(java.util.Calendar.MONTH, month)
+                    set(java.util.Calendar.DAY_OF_MONTH, day); set(java.util.Calendar.HOUR_OF_DAY, hour)
+                    set(java.util.Calendar.MINUTE, minute); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+                }
+                onPicked(chosen.timeInMillis)
+            }, cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), true).show()
+        }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).apply {
+            setTitle(title)
+        }.show()
+    }
+
     private fun showJournal() {
         val root = base()
-        root.addView(text("Journal", 28f))
-        root.addView(text("Your trading workspace", 14f, muted).apply { setPadding(0, 4, 0, 12) })
-        val b = panel()
-        b.addView(text("Coming next", 18f).apply { typeface = Typeface.DEFAULT_BOLD })
-        b.addView(text("Trade notes, results and performance tracking will live here.", 13f, muted).apply { setPadding(0, 8, 0, 0) })
-        root.addView(b, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f; setMargins(0, 0, 0, 12) })
+        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleBox.addView(text("Journal", 28f))
+        titleBox.addView(text("Every trade is saved as a separate card.", 14f, muted).apply { setPadding(0, 4, 0, 0) })
+        header.addView(titleBox, LinearLayout.LayoutParams(0, 70).apply { weight = 1f })
+        header.addView(smallButton("＋ Add", true).apply { setOnClickListener { showTradeEditor(null) } }, LinearLayout.LayoutParams(94, 50))
+        root.addView(header)
+
+        val trades = loadTrades()
+        val closed = trades.count { it.exitTime != null }
+        val wins = trades.count {
+            val e = it.entry.toDoubleOrNull(); val x = it.exit.toDoubleOrNull()
+            e != null && x != null && if (it.direction == "BUY") x > e else x < e
+        }
+        val avgDuration = trades.filter { it.exitTime != null }.map { it.exitTime!! - it.entryTime }.average()
+        val avgDurationText = if (avgDuration.isNaN()) "—" else formatDuration(0, avgDuration.toLong())
+
+        val summary = panel().apply { setPadding(12, 10, 12, 10) }
+        val sr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun stat(label: String, value: String): LinearLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            addView(text(value, 17f, accent).apply { typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER })
+            addView(text(label, 9f, muted).apply { setPadding(0, 4, 0, 0); gravity = Gravity.CENTER })
+        }
+        sr.addView(stat("Trades", trades.size.toString()), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        sr.addView(stat("Closed", closed.toString()), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        sr.addView(stat("Win Rate", if (closed > 0) String.format(Locale.getDefault(), "%.0f%%", wins * 100.0 / closed) else "—"), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        sr.addView(stat("Avg Duration", avgDurationText), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        summary.addView(sr)
+        root.addView(summary, LinearLayout.LayoutParams(-1, 86).apply { setMargins(0, 4, 0, 10) })
+
+        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, 12) }
+        if (trades.isEmpty()) {
+            val empty = panel().apply {
+                addView(text("No trades yet", 18f).apply { typeface = Typeface.DEFAULT_BOLD })
+                addView(text("Tap ＋ Add to register a trade. Entry time defaults to the registration moment, and can be changed later.", 13f, muted).apply { setPadding(0, 8, 0, 0) })
+            }
+            content.addView(empty)
+        } else trades.forEach { addTradeCard(content, it) }
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
         addBottom(root, "journal")
         setContentView(root)
+    }
+
+    private fun addTradeCard(parent: LinearLayout, trade: JournalTrade) {
+        val closed = trade.exitTime != null
+        val card = panel().apply { setPadding(16, 14, 16, 12) }
+        val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        top.addView(text(trade.symbol, 19f).apply { typeface = Typeface.DEFAULT_BOLD }, LinearLayout.LayoutParams(0, 42).apply { weight = 1f })
+        top.addView(text(if (closed) "CLOSED" else "OPEN", 11f, if (closed) green else accent).apply {
+            typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setPadding(12, 8, 12, 8)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(if (closed) Color.argb(28, 25, 171, 111) else Color.argb(28, 22, 119, 255)); cornerRadius = 18f
+            }
+        })
+        card.addView(top)
+        card.addView(text(trade.direction + "   •   Entry: " + trade.entry.ifBlank { "—" } + "   •   SL: " + trade.sl.ifBlank { "—" } + "   •   TP: " + trade.tp.ifBlank { "—" }, 12f, muted).apply { setPadding(0, 5, 0, 0) })
+        card.addView(text("Entry time: " + formatTradeDateTime(trade.entryTime), 12f).apply { setPadding(0, 8, 0, 0) })
+        card.addView(text("Exit time: " + (trade.exitTime?.let { formatTradeDateTime(it) } ?: "Not closed"), 12f).apply { setPadding(0, 4, 0, 0) })
+        card.addView(text("Duration: " + formatDuration(trade.entryTime, trade.exitTime), 12f, accent).apply { typeface = Typeface.DEFAULT_BOLD; setPadding(0, 4, 0, 0) })
+        if (trade.notes.isNotBlank()) card.addView(text(trade.notes, 12f, muted).apply { setPadding(0, 6, 0, 0) })
+        val actions = LinearLayout(this).apply { gravity = Gravity.END; setPadding(0, 10, 0, 0) }
+        actions.addView(smallButton("Edit"), LinearLayout.LayoutParams(88, 44).apply { setMargins(6, 0, 0, 0) })
+        actions.addView(smallButton("Delete"), LinearLayout.LayoutParams(88, 44).apply { setMargins(6, 0, 0, 0) })
+        actions.getChildAt(0).setOnClickListener { showTradeEditor(trade.id) }
+        actions.getChildAt(1).setOnClickListener {
+            AlertDialog.Builder(this).setTitle("Delete trade?").setMessage("This trade will be removed from the journal.")
+                .setNegativeButton("Cancel", null).setPositiveButton("Delete") { _, _ ->
+                    saveTrades(loadTrades().filterNot { it.id == trade.id }); showJournal()
+                }.show()
+        }
+        card.addView(actions)
+        parent.addView(card, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 5, 0, 7) })
+    }
+
+    private fun showTradeEditor(id: Long?) {
+        val trades = loadTrades()
+        val existing = id?.let { wanted -> trades.firstOrNull { it.id == wanted } }
+        val entryDefault = existing?.entryTime ?: System.currentTimeMillis()
+        var entryTime = entryDefault
+        var exitTime = existing?.exitTime
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(8, 2, 8, 0) }
+
+        val symbol = EditText(this).apply { hint = "Symbol"; setText(existing?.symbol ?: (prefs.getString("symbol", "XAUUSD") ?: "XAUUSD")); textSize = 16f }
+        val direction = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, listOf("BUY", "SELL"))
+            setSelection(if (existing?.direction == "SELL") 1 else 0)
+        }
+        fun priceField(hintText: String, value: String = "") = EditText(this).apply {
+            hint = hintText; setText(value); inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL; textSize = 16f
+        }
+        val entry = priceField("Entry price", existing?.entry ?: "")
+        val sl = priceField("Stop Loss", existing?.sl ?: "")
+        val tp = priceField("Take Profit", existing?.tp ?: "")
+        val exit = priceField("Exit price (optional)", existing?.exit ?: "")
+        val volume = priceField("Volume (optional)", existing?.volume ?: "")
+        val notes = EditText(this).apply { hint = "Notes (optional)"; setText(existing?.notes ?: ""); minLines = 2; gravity = Gravity.TOP; textSize = 15f }
+
+        val entryTimeButton = Button(this).apply {
+            text = "Entry time: " + formatTradeDateTime(entryTime)
+            setOnClickListener { pickTradeDateTime("Entry time", entryTime) { entryTime = it; text = "Entry time: " + formatTradeDateTime(it) } }
+        }
+        val exitTimeButton = Button(this).apply {
+            text = "Exit time: " + (exitTime?.let { formatTradeDateTime(it) } ?: "Not set")
+            setOnClickListener { pickTradeDateTime("Exit time", exitTime ?: System.currentTimeMillis()) { exitTime = it; text = "Exit time: " + formatTradeDateTime(it) } }
+        }
+        val clearExit = smallButton("Clear exit time")
+        clearExit.setOnClickListener { exitTime = null; exitTimeButton.text = "Exit time: Not set" }
+
+        box.addView(text("Entry/exit time is editable. New trades default to the moment you register them.", 12f, muted).apply { setPadding(0, 0, 0, 6) })
+        listOf(symbol, direction, entry, sl, tp, exit, volume, entryTimeButton, exitTimeButton, clearExit, notes).forEach {
+            box.addView(it, LinearLayout.LayoutParams(-1, if (it == direction) 52 else 56).apply { setMargins(0, 2, 0, 2) })
+        }
+
+        val dialog = AlertDialog.Builder(this).setTitle(if (existing == null) "Add Trade" else "Edit Trade")
+            .setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val now = System.currentTimeMillis()
+                val finalEntry = if (existing == null && entryTime == entryDefault) now else entryTime
+                val t = existing ?: JournalTrade(now,
+                    symbol.text.toString().trim().uppercase(Locale.getDefault()).ifBlank { "XAUUSD" },
+                    if (direction.selectedItemPosition == 1) "SELL" else "BUY", finalEntry, exitTime,
+                    entry.text.toString().trim(), sl.text.toString().trim(), tp.text.toString().trim(),
+                    exit.text.toString().trim(), volume.text.toString().trim(), notes.text.toString().trim())
+                if (existing != null) {
+                    t.symbol = symbol.text.toString().trim().uppercase(Locale.getDefault()).ifBlank { "XAUUSD" }
+                    t.direction = if (direction.selectedItemPosition == 1) "SELL" else "BUY"
+                    t.entryTime = entryTime; t.exitTime = exitTime
+                    t.entry = entry.text.toString().trim(); t.sl = sl.text.toString().trim(); t.tp = tp.text.toString().trim()
+                    t.exit = exit.text.toString().trim(); t.volume = volume.text.toString().trim(); t.notes = notes.text.toString().trim()
+                }
+                val updated = trades.filterNot { it.id == t.id }.toMutableList()
+                updated.add(t); saveTrades(updated); dialog.dismiss(); showJournal()
+            }
+        }
+        dialog.show()
     }
 
     private fun showSettings() {
