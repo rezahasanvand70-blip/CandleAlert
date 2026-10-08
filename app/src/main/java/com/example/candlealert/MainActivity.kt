@@ -89,19 +89,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == GoogleSheetsApi.REQUEST_CODE) {
-            val result = GoogleSheetsApi.handleAuthorizationResult(this, data)
-            if (result != null && resultCode == RESULT_OK) {
-                prefs.edit().putBoolean("google_sheets_connected", true).apply()
-                val id = prefs.getString("google_sheets_id", "") ?: ""
-                if (id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
-            } else {
-                Toast.makeText(this, "Google Sheets authorization was cancelled.", Toast.LENGTH_SHORT).show()
-                showGoogleSheetsSettings()
+        if (requestCode != GoogleSheetsApi.REQUEST_CODE) return
+        val result = GoogleSheetsApi.handleAuthorizationResult(this, data)
+        if (result?.accessToken?.isNullOrBlank() == false) {
+            val id = prefs.getString("google_sheets_id", "") ?: ""
+            if (id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
+        } else {
+            val message = GoogleSheetsApi.lastError.ifBlank {
+                if (resultCode == RESULT_CANCELED) "Google authorization was cancelled or denied." else "Google authorization failed."
             }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            showGoogleSheetsSettings()
         }
     }
-
     override fun onDestroy() {
         ticker?.let { handler.removeCallbacks(it) }
         super.onDestroy()
@@ -558,8 +558,16 @@ class MainActivity : AppCompatActivity() {
                     t.exit, t.pnl, t.exitReason, t.notes)
             }, initial, deposits, withdrawals)
             runOnUiThread {
-                if (ok) prefs.edit().putLong("google_sheets_last_sync", System.currentTimeMillis()).apply()
-                else Toast.makeText(this, "Google Sheets sync failed. Check connection and permissions.", Toast.LENGTH_SHORT).show()
+                if (ok) {
+                    prefs.edit().putBoolean("google_sheets_connected", true).putLong("google_sheets_last_sync", System.currentTimeMillis()).apply()
+                    Toast.makeText(this, "Google Sheets synced successfully.", Toast.LENGTH_SHORT).show()
+                    showGoogleSheetsSettings()
+                } else {
+                    prefs.edit().putBoolean("google_sheets_connected", false).apply()
+                    val msg = GoogleSheetsApi.lastError.ifBlank { "Google Sheets sync failed." }
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                    showGoogleSheetsSettings()
+                }
             }
         }.start()
     }
@@ -575,7 +583,9 @@ class MainActivity : AppCompatActivity() {
                     googleSheetsSyncAfterAuth(result)
                     showGoogleSheetsSettings()
                 } else {
-                    Toast.makeText(this, "Could not create the Google Sheet.", Toast.LENGTH_LONG).show()
+                    prefs.edit().putBoolean("google_sheets_connected", false).apply()
+                    val msg = GoogleSheetsApi.lastError.ifBlank { "Could not create the Google Sheet." }
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
                     showGoogleSheetsSettings()
                 }
             }
@@ -620,7 +630,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun googleSheetsConnect(createIfMissing: Boolean = false) {
         GoogleSheetsApi.requestAuthorization(this, true) { result ->
-            prefs.edit().putBoolean("google_sheets_connected", true).apply()
             val id = prefs.getString("google_sheets_id", "") ?: ""
             if (createIfMissing || id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
         }
@@ -1350,24 +1359,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun chooseTiming() {
-        val items = mutableListOf<String>()
-        val configs = mutableListOf<Pair<Int, Int>>()
-        listOf(10, 30, 45, 60, 120, 180, 300).forEach {
-            items.add("Before Close  •  " + formatOffset(it)); configs.add(0 to it)
-        }
-        items.add("At Candle Close"); configs.add(1 to 0)
-        listOf(10, 30, 45, 60, 120, 180, 300).forEach {
-            items.add("After Close   •  " + formatOffset(it)); configs.add(2 to it)
-        }
-        val current = configs.indexOf(prefs.getInt("mode", 1) to prefs.getInt("offset", 0)).let { if (it >= 0) it else 7 }
+        // Signed minute convention: + = before close, 0 = at close, - = after close.
+        val items = listOf(
+            "+2 min  •  before candle close",
+            "+1 min  •  before candle close",
+            "0 min   •  exactly at candle close",
+            "-1 min  •  after candle close",
+            "-2 min  •  after candle close",
+            "10 sec  •  before close",
+            "30 sec  •  before close",
+            "45 sec  •  before close",
+            "10 sec  •  after close",
+            "30 sec  •  after close",
+            "45 sec  •  after close"
+        )
+        val configs = listOf(
+            0 to 120, 0 to 60, 1 to 0, 2 to 60, 2 to 120,
+            0 to 10, 0 to 30, 0 to 45, 2 to 10, 2 to 30, 2 to 45
+        )
+        val current = configs.indexOf(prefs.getInt("mode", 1) to prefs.getInt("offset", 0)).let { if (it >= 0) it else 2 }
         wheelDialog("Alert Timing", items, current) { i ->
             val pair = configs[i]
-            prefs.edit().putInt("mode", pair.first).putInt("offset", pair.second).apply()
+            prefs.edit().putInt("mode", pair.first).putInt("offset", pair.second).remove("alert_offset_minutes").apply()
             Scheduler.scheduleNext(this)
             showHome()
         }
     }
-
     private fun chooseMarket() {
         val values = listOf("Forex", "Crypto  •  24/7", "Forex + Crypto")
         val current = prefs.getInt("market", 0).coerceIn(0, 2)
