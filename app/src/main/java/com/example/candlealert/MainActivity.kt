@@ -22,6 +22,10 @@ import java.util.Locale
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 
 class MainActivity : AppCompatActivity() {
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
+    private fun dp(v: Float): Float = v * resources.displayMetrics.density
+    private fun lp(width: Int, height: Int): LinearLayout.LayoutParams =
+        lp(if (width > 0) dp(width) else width, if (height > 0) dp(height) else height)
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
 
     private val darkMode get() = when (prefs.getString("theme_mode", "light")) { "dark" -> true; "system" -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
@@ -111,11 +115,11 @@ class MainActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
-            setPadding(18, 10, 18, 8)
+            setPadding(dp(18), dp(10), dp(18), dp(8))
         }
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(18, 10 + bars.top, 18, 8 + bars.bottom)
+            v.setPadding(dp(18), dp(10) + bars.top, dp(18), dp(8) + bars.bottom)
             applySystemBars()
             insets
         }
@@ -144,13 +148,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun panel(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(16, 14, 16, 14)
+        setPadding(dp(16), dp(14), dp(16), dp(14))
         background = android.graphics.drawable.GradientDrawable().apply {
             setColor(cardColor)
-            cornerRadius = 18f
+            cornerRadius = dp(18f)
             setStroke(1, line)
         }
-        elevation = 1f
+        elevation = dp(1f)
     }
 
     private fun smallButton(s: String, selected: Boolean = false) = TextView(this).apply {
@@ -159,12 +163,12 @@ class MainActivity : AppCompatActivity() {
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         setTextColor(if (selected) Color.WHITE else textColor)
         gravity = Gravity.CENTER
-        setPadding(16, 10, 16, 10)
+        setPadding(dp(16), dp(10), dp(16), dp(10))
         background = android.graphics.drawable.GradientDrawable().apply {
             setColor(if (selected) accent else soft)
-            cornerRadius = 22f
+            cornerRadius = dp(22f)
         }
-        minimumHeight = 44
+        minimumHeight = dp(44)
     }
 
     private fun showHome() {
@@ -177,18 +181,18 @@ class MainActivity : AppCompatActivity() {
         }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 0, 0, 14)
+            setPadding(dp(0), dp(0), dp(0), dp(14))
         }
         scroll.addView(content)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
 
         // ALERT ACTIVE — deliberately above the clock and given enough height for all text.
-        val status = panel().apply { setPadding(24, 22, 24, 22) }
+        val status = panel().apply { setPadding(dp(24), dp(22), dp(24), dp(22)) }
         val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val enabled = prefs.getBoolean("enabled", true)
         statusRow.addView(text("●", 22f, if (enabled) green else red).apply {
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(42, 84))
+        }, lp(42, 84))
         val statusTexts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
@@ -199,40 +203,40 @@ class MainActivity : AppCompatActivity() {
         statusTexts.addView(text(
             if (enabled) "Next candle alert is scheduled." else "Turn alerts on to schedule the next candle.",
             12f, muted
-        ).apply { setPadding(0, 5, 0, 0) })
-        statusRow.addView(statusTexts, LinearLayout.LayoutParams(0, 72).apply { weight = 1f })
+        ).apply { setPadding(dp(0), dp(5), dp(0), dp(0)) })
+        statusRow.addView(statusTexts, lp(0, 72).apply { weight = 1f })
         val sw = Switch(this).apply {
             isChecked = enabled
-            minWidth = 62
+            minWidth = dp(62)
             scaleX = 1.08f
             scaleY = 1.08f
         }
-        statusRow.addView(sw, LinearLayout.LayoutParams(76, 72))
+        statusRow.addView(sw, lp(76, 72))
         status.addView(statusRow)
         sw.setOnCheckedChangeListener { _, value ->
             prefs.edit().putBoolean("enabled", value).apply()
             Scheduler.scheduleNext(this)
             showHome()
         }
-        content.addView(status, LinearLayout.LayoutParams(-1, 138).apply {
-            setMargins(0, 8, 0, 12)
+        content.addView(status, lp(-1, 138).apply {
+            setMargins(dp(0), dp(8), dp(0), dp(12))
         })
 
         // Header is compact; the clock remains the visual focus.
         val header = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, 2)
+            setPadding(dp(0), dp(0), dp(0), dp(2))
         }
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleBox.addView(text("Candle Alert", 25f))
         titleBox.addView(text("Candle-close notifications", 12f, muted).apply {
-            setPadding(0, 4, 0, 0)
+            setPadding(dp(0), dp(4), dp(0), dp(0))
         })
-        header.addView(titleBox, LinearLayout.LayoutParams(-1, 58))
+        header.addView(titleBox, lp(-1, 58))
         content.addView(header)
 
         // The clock uses the available content width so it never clips against root padding.
-        val clockSize = resources.displayMetrics.widthPixels - 36
+        val clockSize = resources.displayMetrics.widthPixels - dp(36)
         val clock = AnalogClockView(
             this,
             accent,
@@ -250,28 +254,28 @@ class MainActivity : AppCompatActivity() {
             Scheduler.scheduleNext(this)
             showHome()
         }
-        content.addView(clock, LinearLayout.LayoutParams(-1, clockSize).apply {
-            setMargins(0, 0, 0, 4)
+        content.addView(clock, lp(-1, clockSize).apply {
+            setMargins(dp(0), dp(0), dp(0), dp(4))
         })
 
         // Next alert stays directly under the clock, but remains compact.
-        val nextMini = panel().apply { setPadding(16, 8, 16, 8) }
+        val nextMini = panel().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val nextMiniRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val nextMiniTexts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         nextMiniTexts.addView(text("NEXT ALERT", 10f, muted))
         countdownView = text("Calculating…", 20f, accent).apply {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setPadding(0, 3, 0, 0)
+            setPadding(dp(0), dp(3), dp(0), dp(0))
         }
         nextMiniTexts.addView(countdownView)
         nextDetailsView = text("Checking schedule…", 11f, muted).apply {
-            setPadding(0, 2, 0, 0)
+            setPadding(dp(0), dp(2), dp(0), dp(0))
         }
         nextMiniTexts.addView(nextDetailsView)
-        nextMiniRow.addView(nextMiniTexts, LinearLayout.LayoutParams(0, 66).apply { weight = 1f })
+        nextMiniRow.addView(nextMiniTexts, lp(0, 66).apply { weight = 1f })
         nextMini.addView(nextMiniRow)
-        content.addView(nextMini, LinearLayout.LayoutParams(-1, 82).apply {
-            setMargins(0, 2, 0, 18)
+        content.addView(nextMini, lp(-1, 82).apply {
+            setMargins(dp(0), dp(2), dp(0), dp(18))
         })
 
         val tf = prefs.getInt("tf", 60)
@@ -286,21 +290,21 @@ class MainActivity : AppCompatActivity() {
         // independent row with generous height and readable typography.
         content.addView(text("QUICK CONTROLS", 12f, muted).apply {
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(2, 0, 0, 8)
+            setPadding(dp(2), dp(0), dp(0), dp(8))
         })
 
         fun quickControl(labelText: String, value: String, click: () -> Unit): LinearLayout {
             val box = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(24, 20, 22, 20)
+                setPadding(dp(24), dp(20), dp(22), dp(20))
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(cardColor)
-                    cornerRadius = 18f
+                    cornerRadius = dp(18f)
                     setStroke(1, line)
                 }
-                elevation = 1f
-                minimumHeight = 118
+                elevation = dp(1f)
+                minimumHeight = dp(118)
                 isClickable = true
                 setOnClickListener { click() }
             }
@@ -311,24 +315,24 @@ class MainActivity : AppCompatActivity() {
             texts.addView(text(labelText, 13f, muted))
             texts.addView(text(value, 23f).apply {
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 7, 0, 0)
+                setPadding(dp(0), dp(7), dp(0), dp(0))
             })
-            box.addView(texts, LinearLayout.LayoutParams(0, 88).apply { weight = 1f })
+            box.addView(texts, lp(0, 88).apply { weight = 1f })
             box.addView(text("›", 30f, muted).apply { gravity = Gravity.CENTER })
             return box
         }
 
         val sleepSummary = prefs.getString("quiet", "00:00-07:30") ?: "00:00-07:30"
         content.addView(quickControl("TIMEFRAME", tfLabel) { chooseTf() },
-            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 12) })
+            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
         content.addView(quickControl("MARKET", market) { chooseMarket() },
-            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 12) })
+            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
         content.addView(quickControl("ALERT", timingSummary()) { chooseTiming() },
-            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 12) })
+            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
         content.addView(quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
-            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 20) })
+            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(20)) })
 
-        val navHost = LinearLayout(this).apply { setPadding(18, 0, 18, 8) }
+        val navHost = LinearLayout(this).apply { setPadding(dp(18), dp(0), dp(18), dp(8)) }
         addBottom(navHost, "home")
         root.addView(navHost)
         setContentView(root)
@@ -389,13 +393,13 @@ class MainActivity : AppCompatActivity() {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(6, 6, 6, 6)
+            setPadding(dp(6), dp(6), dp(6), dp(6))
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(cardColor)
-                cornerRadius = 24f
+                cornerRadius = dp(24f)
                 setStroke(1, line)
             }
-            elevation = 2f
+            elevation = dp(2f)
         }
         val items = listOf("Home" to android.R.drawable.ic_menu_view, "Journal" to android.R.drawable.ic_menu_edit, "Settings" to android.R.drawable.ic_menu_preferences)
         items.forEach { pair ->
@@ -404,12 +408,12 @@ class MainActivity : AppCompatActivity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(8, 7, 8, 7)
+                setPadding(dp(8), dp(7), dp(8), dp(7))
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(if (selected) Color.rgb(235, 243, 255) else cardColor)
-                    cornerRadius = 18f
+                    cornerRadius = dp(18f)
                 }
-                minimumHeight = 88
+                minimumHeight = dp(88)
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
@@ -421,17 +425,17 @@ class MainActivity : AppCompatActivity() {
             val icon = ImageView(this).apply {
                 setImageResource(pair.second)
                 setColorFilter(if (selected) accent else muted)
-                setPadding(4, 3, 4, 1)
+                setPadding(dp(4), dp(3), dp(4), dp(1))
             }
-            item.addView(icon, LinearLayout.LayoutParams(50, 44))
+            item.addView(icon, lp(50, 44))
             item.addView(text(name, 13f, if (selected) accent else muted).apply {
                 gravity = Gravity.CENTER
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 3, 0, 0)
+                setPadding(dp(0), dp(3), dp(0), dp(0))
             })
-            nav.addView(item, LinearLayout.LayoutParams(0, 90).apply { weight = 1f; setMargins(5, 0, 5, 0) })
+            nav.addView(item, lp(0, 90).apply { weight = 1f; setMargins(dp(5), dp(0), dp(5), dp(0)) })
         }
-        root.addView(nav, LinearLayout.LayoutParams(-1, 100))
+        root.addView(nav, lp(-1, 100))
     }
 
 
@@ -596,34 +600,34 @@ class MainActivity : AppCompatActivity() {
         val root = base()
         root.addView(text("Google Sheets", 28f))
         root.addView(text("Keep your Journal in your personal Google Sheet so the data survives app replacement or deletion.", 14f, muted).apply {
-            setPadding(0, 4, 0, 14)
+            setPadding(dp(0), dp(4), dp(0), dp(14))
         })
         val connected = prefs.getBoolean("google_sheets_connected", false)
         val id = prefs.getString("google_sheets_id", "") ?: ""
         val url = prefs.getString("google_sheets_url", "") ?: ""
-        val status = panel().apply { setPadding(18, 16, 18, 16) }
+        val status = panel().apply { setPadding(dp(18), dp(16), dp(18), dp(16)) }
         status.addView(text(if (connected) "●  Connected" else "○  Not connected", 18f, if (connected) green else muted).apply { typeface = Typeface.DEFAULT_BOLD })
-        status.addView(text(if (id.isBlank()) "No Journal Sheet selected." else "Candle Alert Journal is linked.", 13f, muted).apply { setPadding(0, 5, 0, 0) })
-        root.addView(status, LinearLayout.LayoutParams(-1, 94).apply { setMargins(0, 0, 0, 12) })
+        status.addView(text(if (id.isBlank()) "No Journal Sheet selected." else "Candle Alert Journal is linked.", 13f, muted).apply { setPadding(dp(0), dp(5), dp(0), dp(0)) })
+        root.addView(status, lp(-1, 94).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
         root.addView(smallButton(if (connected) "Google Account  •  Connected" else "Connect Google Account", true).apply {
             setOnClickListener { googleSheetsConnect() }
-        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         root.addView(smallButton("Create New Personal Journal Sheet").apply {
             setOnClickListener { googleSheetsConnect(createIfMissing = true) }
-        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         root.addView(smallButton("Use Existing Sheet ID / URL").apply {
             setOnClickListener { editGoogleSheetId() }
-        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         root.addView(smallButton("Sync Now").apply {
             setOnClickListener { googleSheetsSyncIfConnected() }
-        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         if (url.isNotBlank()) {
             root.addView(smallButton("Open Google Sheet", true).apply {
                 setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
-            }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+            }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         }
-        root.addView(text("The sheet contains Trade ID, status, entry/exit data, P/L, reasons, notes and account balance.", 12f, muted).apply { setPadding(2, 8, 2, 8) })
-        root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
+        root.addView(text("The sheet contains Trade ID, status, entry/exit data, P/L, reasons, notes and account balance.", 12f, muted).apply { setPadding(dp(2), dp(8), dp(2), dp(8)) })
+        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
@@ -686,13 +690,13 @@ class MainActivity : AppCompatActivity() {
         val root = base()
         root.addView(text("Journal", 28f))
         root.addView(text("Record, review and close trades step by step.", 13f, muted).apply {
-            setPadding(0, 4, 0, 12)
+            setPadding(dp(0), dp(4), dp(0), dp(12))
         })
 
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 0, 0, 12)
+            setPadding(dp(0), dp(0), dp(0), dp(12))
         }
         val trades = journalTrades()
         val open = trades.filter { it.exitTime == null }
@@ -700,7 +704,7 @@ class MainActivity : AppCompatActivity() {
 
         content.addView(smallButton("+  Add Trade", true).apply {
             setOnClickListener { journalAddTrade() }
-        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 4, 0, 14) })
+        }, lp(-1, 54).apply { setMargins(dp(0), dp(4), dp(0), dp(14)) })
 
         // Large performance summary: values are intentionally prominent and
         // profit/loss state is reinforced with explicit green/red typography.
@@ -715,33 +719,33 @@ class MainActivity : AppCompatActivity() {
         val plannedRRs = trades.mapNotNull { journalRR(it) }
         val avgPlannedRR = if (plannedRRs.isNotEmpty()) plannedRRs.average() else null
 
-        val summary = panel().apply { setPadding(18, 18, 18, 18) }
+        val summary = panel().apply { setPadding(dp(18), dp(18), dp(18), dp(18)) }
         summary.addView(text("PERFORMANCE SUMMARY", 13f, muted).apply {
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 14)
+            setPadding(dp(0), dp(0), dp(0), dp(14))
         })
         fun summaryRow(leftLabel: String, leftValue: String, leftColor: Int = textColor,
                        rightLabel: String, rightValue: String, rightColor: Int = textColor) {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 5, 0, 5)
+                setPadding(dp(0), dp(5), dp(0), dp(5))
             }
             fun cell(label: String, value: String, valueColor: Int): LinearLayout {
                 return LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(0, 2, 10, 2)
+                    setPadding(dp(0), dp(2), dp(10), dp(2))
                     addView(text(label, 12f, muted))
                     addView(text(value, 20f, valueColor).apply {
                         typeface = Typeface.DEFAULT_BOLD
-                        setPadding(0, 5, 0, 0)
+                        setPadding(dp(0), dp(5), dp(0), dp(0))
                         maxLines = 1
                         ellipsize = android.text.TextUtils.TruncateAt.END
                     })
                 }
             }
-            row.addView(cell(leftLabel, leftValue, leftColor), LinearLayout.LayoutParams(0, 70).apply { weight = 1f })
-            row.addView(cell(rightLabel, rightValue, rightColor), LinearLayout.LayoutParams(0, 70).apply { weight = 1f })
+            row.addView(cell(leftLabel, leftValue, leftColor), lp(0, 70).apply { weight = 1f })
+            row.addView(cell(rightLabel, rightValue, rightColor), lp(0, 70).apply { weight = 1f })
             summary.addView(row)
         }
         val netColor = when {
@@ -772,52 +776,52 @@ class MainActivity : AppCompatActivity() {
                 netPnl < 0.0 -> "LOSS"
                 else -> "BREAK-EVEN"
             }, netColor)
-        content.addView(summary, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 12) })
+        content.addView(summary, lp(-1, -2).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
 
         val initialBalance = prefs.getString("account_initial", "")?.toDoubleOrNull() ?: 0.0
         val deposits = prefs.getString("account_deposits", "")?.toDoubleOrNull() ?: 0.0
         val withdrawals = prefs.getString("account_withdrawals", "")?.toDoubleOrNull() ?: 0.0
         val currentBalance = initialBalance + deposits - withdrawals + netPnl
-        val balanceCard = panel().apply { setPadding(18, 18, 18, 18) }
+        val balanceCard = panel().apply { setPadding(dp(18), dp(18), dp(18), dp(18)) }
         balanceCard.addView(text("ACCOUNT BALANCE", 13f, muted).apply { typeface = Typeface.DEFAULT_BOLD })
         balanceCard.addView(text(String.format(Locale.US, "%.2f", currentBalance), 28f,
             when { currentBalance > 0.0 -> green; currentBalance < 0.0 -> red; else -> textColor }).apply {
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 7, 0, 2)
+            setPadding(dp(0), dp(7), dp(0), dp(2))
         })
         balanceCard.addView(text(
             "Initial " + String.format(Locale.US, "%.2f", initialBalance) +
                 "  •  Deposits " + String.format(Locale.US, "%.2f", deposits) +
                 "  •  Withdrawals " + String.format(Locale.US, "%.2f", withdrawals),
             12f, muted
-        ).apply { setPadding(0, 0, 0, 14) })
+        ).apply { setPadding(dp(0), dp(0), dp(0), dp(14)) })
         val balanceActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         fun balanceAction(label: String, click: () -> Unit): TextView = smallButton(label).apply {
             textSize = 12f
             setOnClickListener { click() }
         }
         balanceActions.addView(balanceAction("Initial") { editAccountAmount("Initial Balance", "account_initial", false) },
-            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+            lp(0, 46).apply { weight = 1f; setMargins(dp(2), dp(0), dp(2), dp(0)) })
         balanceActions.addView(balanceAction("Deposit") { editAccountAmount("Deposit", "account_deposits", true) },
-            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+            lp(0, 46).apply { weight = 1f; setMargins(dp(2), dp(0), dp(2), dp(0)) })
         balanceActions.addView(balanceAction("Withdraw") { editAccountAmount("Withdrawal", "account_withdrawals", true) },
-            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+            lp(0, 46).apply { weight = 1f; setMargins(dp(2), dp(0), dp(2), dp(0)) })
         balanceActions.addView(balanceAction("Reset") { resetAccountBalance() },
-            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+            lp(0, 46).apply { weight = 1f; setMargins(dp(2), dp(0), dp(2), dp(0)) })
         balanceCard.addView(balanceActions)
-        content.addView(balanceCard, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 14) })
+        content.addView(balanceCard, lp(-1, -2).apply { setMargins(dp(0), dp(0), dp(0), dp(14)) })
 
         if (open.isNotEmpty()) {
             content.addView(text("OPEN TRADES", 11f, muted).apply {
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(2, 4, 0, 6)
+                setPadding(dp(2), dp(4), dp(0), dp(6))
             })
             open.forEach { journalTradeCard(content, it) }
         }
         if (closed.isNotEmpty()) {
             content.addView(text("CLOSED TRADES", 11f, muted).apply {
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(2, 18, 0, 6)
+                setPadding(dp(2), dp(18), dp(0), dp(6))
             })
             closed.forEach { journalTradeCard(content, it) }
         }
@@ -827,14 +831,14 @@ class MainActivity : AppCompatActivity() {
                 addView(text("No trades yet", 18f).apply { gravity = Gravity.CENTER })
                 addView(text("Tap + Add Trade to start.", 13f, muted).apply {
                     gravity = Gravity.CENTER
-                    setPadding(0, 8, 0, 0)
+                    setPadding(dp(0), dp(8), dp(0), dp(0))
                 })
-            }, LinearLayout.LayoutParams(-1, 150).apply { setMargins(0, 8, 0, 0) })
+            }, lp(-1, 150).apply { setMargins(dp(0), dp(8), dp(0), dp(0)) })
         }
 
         scroll.addView(content)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
-        val navHost = LinearLayout(this).apply { setPadding(18, 0, 18, 8) }
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
+        val navHost = LinearLayout(this).apply { setPadding(dp(18), dp(0), dp(18), dp(8)) }
         addBottom(navHost, "journal")
         root.addView(navHost)
         setContentView(root)
@@ -850,8 +854,8 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val title = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         title.addView(text(t.symbol + "  •  " + t.direction, 18f).apply { typeface = Typeface.DEFAULT_BOLD })
-        title.addView(text("Entry " + journalDate(t.entryTime), 12f, muted).apply { setPadding(0, 4, 0, 0) })
-        row.addView(title, LinearLayout.LayoutParams(0, 56).apply { weight = 1f })
+        title.addView(text("Entry " + journalDate(t.entryTime), 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
+        row.addView(title, lp(0, 56).apply { weight = 1f })
         row.addView(text(if (isOpen) "OPEN" else "CLOSED", 11f, if (isOpen) accent else muted).apply {
             typeface = Typeface.DEFAULT_BOLD
         })
@@ -860,30 +864,30 @@ class MainActivity : AppCompatActivity() {
             "Entry " + t.entry.ifBlank { "—" } +
                 "   SL " + t.sl.ifBlank { "—" } +
                 "   TP " + t.tp.ifBlank { "—" }, 12f, muted
-        ).apply { setPadding(0, 8, 0, 0) })
+        ).apply { setPadding(dp(0), dp(8), dp(0), dp(0)) })
         val rr = journalRR(t)
         if (rr != null) {
             c.addView(text("Planned R:R  1 : " + String.format(Locale.US, "%.2f", rr), 12f, accent).apply {
-                setPadding(0, 5, 0, 0)
+                setPadding(dp(0), dp(5), dp(0), dp(0))
             })
         }
         if (!isOpen) {
             c.addView(text(
                 "Exit " + t.exit.ifBlank { "—" } + "   •   P/L " + t.pnl.ifBlank { "—" },
                 13f, if ((t.pnl.toDoubleOrNull() ?: 0.0) >= 0) green else red
-            ).apply { setPadding(0, 5, 0, 0) })
+            ).apply { setPadding(dp(0), dp(5), dp(0), dp(0)) })
             if (t.exitReason.isNotBlank()) {
-                c.addView(text("Reason: " + t.exitReason, 12f, muted).apply { setPadding(0, 4, 0, 0) })
+                c.addView(text("Reason: " + t.exitReason, 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
             }
         }
-        val actions = LinearLayout(this).apply { gravity = Gravity.END; setPadding(0, 10, 0, 0) }
+        val actions = LinearLayout(this).apply { gravity = Gravity.END; setPadding(dp(0), dp(10), dp(0), dp(0)) }
         actions.addView(smallButton("Edit").apply { setOnClickListener { journalEditTrade(t) } })
         if (isOpen) {
             actions.addView(smallButton("Close").apply { setOnClickListener { journalCloseTrade(t) } })
         }
         actions.addView(smallButton("Delete").apply { setOnClickListener { journalDeleteTrade(t) } })
         c.addView(actions)
-        parent.addView(c, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 4, 0, 6) })
+        parent.addView(c, lp(-1, -2).apply { setMargins(dp(0), dp(4), dp(0), dp(6)) })
     }
 
     private fun journalAsk(title: String, hint: String, initial: String = "", optional: Boolean = true, onDone: (String) -> Unit) {
@@ -988,17 +992,17 @@ class MainActivity : AppCompatActivity() {
     private fun journalConfirmNew(t: JournalTrade) {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 4, 24, 8)
+            setPadding(dp(24), dp(4), dp(24), dp(8))
         }
         fun addReviewRow(label: String, value: String) {
             box.addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 7, 0, 7)
-                addView(text(label, 14f, muted), LinearLayout.LayoutParams(82, 34))
+                setPadding(dp(0), dp(7), dp(0), dp(7))
+                addView(text(label, 14f, muted), lp(82, 34))
                 addView(text(value, 16f).apply {
                     typeface = Typeface.DEFAULT_BOLD
-                }, LinearLayout.LayoutParams(0, 34).apply { weight = 1f })
+                }, lp(0, 34).apply { weight = 1f })
             })
         }
         addReviewRow("Symbol", t.symbol + "  " + t.direction)
@@ -1007,7 +1011,7 @@ class MainActivity : AppCompatActivity() {
         addReviewRow("TP", t.tp.ifBlank { "—" })
         journalRR(t)?.let { addReviewRow("R:R", "1 : " + String.format(Locale.US, "%.2f", it)) }
         box.addView(text("Save as OPEN trade?", 14f, muted).apply {
-            setPadding(0, 10, 0, 2)
+            setPadding(dp(0), dp(10), dp(0), dp(2))
         })
 
         val dialog = AlertDialog.Builder(this)
@@ -1260,10 +1264,10 @@ class MainActivity : AppCompatActivity() {
     private fun showSettings() {
         val root = base()
         root.addView(text("Settings", 28f))
-        root.addView(text("Configure how Candle Alert behaves", 14f, muted).apply { setPadding(0, 4, 0, 12) })
+        root.addView(text("Configure how Candle Alert behaves", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
 
         val scroll = ScrollView(this)
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, 10) }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(0), dp(0), dp(0), dp(10)) }
 
         // Daily trading controls live on Home. Settings contains only behavior/system options.
         val options = listOf(
@@ -1275,12 +1279,12 @@ class MainActivity : AppCompatActivity() {
         )
 
         options.forEach { pair ->
-            val c = panel().apply { setPadding(16, 8, 14, 8) }
+            val c = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
             val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
             titles.addView(text(pair.first, 16f).apply { typeface = Typeface.DEFAULT_BOLD })
-            titles.addView(text(pair.second, 12f, muted).apply { setPadding(0, 4, 0, 0) })
-            row.addView(titles, LinearLayout.LayoutParams(0, 64).apply { weight = 1f })
+            titles.addView(text(pair.second, 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
+            row.addView(titles, lp(0, 64).apply { weight = 1f })
             row.addView(text("›", 28f, muted).apply { gravity = Gravity.CENTER })
             c.addView(row)
             c.setOnClickListener {
@@ -1296,10 +1300,10 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            content.addView(c, LinearLayout.LayoutParams(-1, 92).apply { setMargins(0, 5, 0, 5) })
+            content.addView(c, lp(-1, 92).apply { setMargins(dp(0), dp(5), dp(0), dp(5)) })
         }
         scroll.addView(content)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
@@ -1308,7 +1312,7 @@ class MainActivity : AppCompatActivity() {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(16, 6, 16, 4)
+            setPadding(dp(16), dp(6), dp(16), dp(4))
         }
         val picker = NumberPicker(this).apply {
             minValue = 0
@@ -1318,7 +1322,7 @@ class MainActivity : AppCompatActivity() {
             wrapSelectorWheel = true
             descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
         }
-        box.addView(picker, LinearLayout.LayoutParams(-1, 220))
+        box.addView(picker, lp(-1, 220))
         val dialog = AlertDialog.Builder(this).setTitle(title).setView(box)
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Done") { _, _ -> onSelected(picker.value) }.create()
@@ -1400,12 +1404,12 @@ class MainActivity : AppCompatActivity() {
         val parts = current.split(":")
         val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
         val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
-        val box = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(10, 4, 10, 4) }
+        val box = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(10), dp(4), dp(10), dp(4)) }
         val hp = NumberPicker(this).apply { minValue=0; maxValue=23; value=h; wrapSelectorWheel=true; descendantFocusability=NumberPicker.FOCUS_BLOCK_DESCENDANTS }
         val mp = NumberPicker(this).apply { minValue=0; maxValue=59; value=m; wrapSelectorWheel=true; descendantFocusability=NumberPicker.FOCUS_BLOCK_DESCENDANTS }
-        box.addView(hp, LinearLayout.LayoutParams(0,220).apply{weight=1f})
-        box.addView(text(":",28f).apply{gravity=Gravity.CENTER}, LinearLayout.LayoutParams(36,220))
-        box.addView(mp, LinearLayout.LayoutParams(0,220).apply{weight=1f})
+        box.addView(hp, lp(0,220).apply{weight=1f})
+        box.addView(text(":",28f).apply{gravity=Gravity.CENTER}, lp(36,220))
+        box.addView(mp, lp(0,220).apply{weight=1f})
         AlertDialog.Builder(this).setTitle("Open Market")
             .setMessage("Candle alignment starts from this broker open time, using phone local time.")
             .setView(box).setNegativeButton("Cancel",null)
@@ -1418,27 +1422,27 @@ class MainActivity : AppCompatActivity() {
     private fun showSessions() {
         val root = base()
         root.addView(text("Trading Sessions", 28f))
-        root.addView(text("Select the Forex sessions used for alerts.", 14f, muted).apply { setPadding(0, 4, 0, 12) })
+        root.addView(text("Select the Forex sessions used for alerts.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
         val sessions = listOf("Sydney", "Tokyo", "Frankfurt", "London", "New York")
         val selected = prefs.getStringSet("sessions", sessions.toSet())?.toMutableSet() ?: sessions.toMutableSet()
         sessions.forEach { s ->
-            val c = panel().apply { setPadding(16, 8, 14, 8) }
+            val c = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-            row.addView(text(s, 16f), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
-            val sw = Switch(this).apply { isChecked = selected.contains(s); minWidth = 52 }
-            row.addView(sw, LinearLayout.LayoutParams(56, 48))
+            row.addView(text(s, 16f), lp(0, 58).apply { weight = 1f })
+            val sw = Switch(this).apply { isChecked = selected.contains(s); minWidth = dp(52) }
+            row.addView(sw, lp(56, 48))
             c.addView(row)
             sw.setOnCheckedChangeListener { _, checked ->
                 if (checked) selected.add(s) else selected.remove(s)
                 prefs.edit().putStringSet("sessions", selected).apply()
                 Scheduler.scheduleNext(this)
             }
-            root.addView(c, LinearLayout.LayoutParams(-1, 74).apply { setMargins(0, 4, 0, 4) })
+            root.addView(c, lp(-1, 74).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
         }
         root.addView(smallButton("Done", true).apply {
             setOnClickListener { showSettings() }
-        }, LinearLayout.LayoutParams(-1, 50).apply { setMargins(0, 10, 0, 8) })
-        root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
+        }, lp(-1, 50).apply { setMargins(dp(0), dp(10), dp(0), dp(8)) })
+        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
@@ -1458,22 +1462,22 @@ class MainActivity : AppCompatActivity() {
     private fun showThemeSettings() {
         val root = base()
         root.addView(text("Theme", 28f))
-        root.addView(text("Choose light, dark, or your phone's system theme.", 14f, muted).apply { setPadding(0, 4, 0, 14) })
+        root.addView(text("Choose light, dark, or your phone's system theme.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(14)) })
         val modes = listOf("light" to "Light", "dark" to "Dark", "system" to "System default")
         modes.forEach { pair ->
             val mode = pair.first
-            val c = panel().apply { setPadding(16, 8, 14, 8) }
+            val c = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
             val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
             titles.addView(text(pair.second, 17f).apply { typeface = Typeface.DEFAULT_BOLD })
-            titles.addView(text(when(mode) {"light" -> "Always use light mode"; "dark" -> "Always use dark mode"; else -> "Match the phone's system theme"}, 12f, muted).apply { setPadding(0, 4, 0, 0) })
-            row.addView(titles, LinearLayout.LayoutParams(0, 66).apply { weight = 1f })
+            titles.addView(text(when(mode) {"light" -> "Always use light mode"; "dark" -> "Always use dark mode"; else -> "Match the phone's system theme"}, 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
+            row.addView(titles, lp(0, 66).apply { weight = 1f })
             row.addView(text(if (prefs.getString("theme_mode", "light") == mode) "✓" else "", 23f, accent))
             c.addView(row)
             c.setOnClickListener { prefs.edit().putString("theme_mode", mode).apply(); applyNightModePreference(); showSettings() }
-            root.addView(c, LinearLayout.LayoutParams(-1, 84).apply { setMargins(0, 5, 0, 5) })
+            root.addView(c, lp(-1, 84).apply { setMargins(dp(0), dp(5), dp(0), dp(5)) })
         }
-        root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
+        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
@@ -1481,17 +1485,17 @@ class MainActivity : AppCompatActivity() {
     private fun chooseNotificationApp() {
         val root = base()
         root.addView(text("Notification App", 28f))
-        root.addView(text("Choose which installed trading app opens when an alert arrives.", 14f, muted).apply { setPadding(0, 4, 0, 12) })
+        root.addView(text("Choose which installed trading app opens when an alert arrives.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
         val current = prefs.getString("notification_app_package", "") ?: ""
         val custom = prefs.getStringSet("custom_notification_apps", emptySet()) ?: emptySet()
 
-        val none = panel().apply { setPadding(16, 8, 14, 8) }
+        val none = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
         val nr = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        nr.addView(text("No app", 16f), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        nr.addView(text("No app", 16f), lp(0, 58).apply { weight = 1f })
         nr.addView(text(if (current.isEmpty()) "✓" else "", 22f, accent))
         none.addView(nr)
         none.setOnClickListener { prefs.edit().remove("notification_app_package").remove("notification_app_label").apply(); showSettings() }
-        root.addView(none, LinearLayout.LayoutParams(-1, 74).apply { setMargins(0, 4, 0, 10) })
+        root.addView(none, lp(-1, 74).apply { setMargins(dp(0), dp(4), dp(0), dp(10)) })
 
         val pm = packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -1502,41 +1506,41 @@ class MainActivity : AppCompatActivity() {
         val tradingApps = allApps.filter { pair -> words.any { pair.second.lowercase().contains(it) } }
             .sortedWith(compareBy({ !(it.second.contains("MetaTrader", true) || it.second.contains("TradingView", true)) }, { it.second.lowercase() }))
 
-        root.addView(text("TRADING APPS", 11f, muted).apply { setPadding(2, 4, 0, 5) })
+        root.addView(text("TRADING APPS", 11f, muted).apply { setPadding(dp(2), dp(4), dp(0), dp(5)) })
         tradingApps.forEach { addNotificationAppRow(root, it.first, it.second, current) }
-        root.addView(text("MY ADDED APPS", 11f, muted).apply { setPadding(2, 12, 0, 5) })
+        root.addView(text("MY ADDED APPS", 11f, muted).apply { setPadding(dp(2), dp(12), dp(0), dp(5)) })
         allApps.filter { custom.contains(it.first) }.sortedBy { it.second.lowercase() }.forEach { addNotificationAppRow(root, it.first, it.second, current) }
 
         root.addView(panel().apply {
             val r = LinearLayout(this@MainActivity).apply { gravity = Gravity.CENTER_VERTICAL }
-            r.addView(text("＋  Add installed app", 16f), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+            r.addView(text("＋  Add installed app", 16f), lp(0, 58).apply { weight = 1f })
             r.addView(text("›", 28f, muted))
             addView(r)
             setOnClickListener { showInstalledAppsPicker() }
-        }, LinearLayout.LayoutParams(-1, 74).apply { setMargins(0, 10, 0, 6) })
+        }, lp(-1, 74).apply { setMargins(dp(0), dp(10), dp(0), dp(6)) })
 
-        root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
+        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
 
     private fun addNotificationAppRow(root: LinearLayout, pkg: String, name: String, current: String) {
-        val c = panel().apply { setPadding(16, 7, 14, 7) }
+        val c = panel().apply { setPadding(dp(16), dp(7), dp(14), dp(7)) }
         val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        r.addView(text(name, 16f), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        r.addView(text(name, 16f), lp(0, 58).apply { weight = 1f })
         if (pkg == current) r.addView(text("✓", 22f, accent))
         c.addView(r)
         c.setOnClickListener {
             prefs.edit().putString("notification_app_package", pkg).putString("notification_app_label", name).apply()
             showSettings()
         }
-        root.addView(c, LinearLayout.LayoutParams(-1, 74).apply { setMargins(0, 4, 0, 4) })
+        root.addView(c, lp(-1, 74).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
     }
 
     private fun showInstalledAppsPicker() {
         val root = base()
         root.addView(text("Add Installed App", 28f))
-        root.addView(text("Select an app to add it to the notification list.", 14f, muted).apply { setPadding(0, 4, 0, 12) })
+        root.addView(text("Select an app to add it to the notification list.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
         val pm = packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         val custom = prefs.getStringSet("custom_notification_apps", emptySet())?.toMutableSet() ?: mutableSetOf()
@@ -1544,11 +1548,11 @@ class MainActivity : AppCompatActivity() {
             .filter { it.first != packageName }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
 
         val scroll = ScrollView(this)
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, 12) }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(0), dp(0), dp(0), dp(12)) }
         apps.forEach { pair ->
-            val c = panel().apply { setPadding(16, 7, 14, 7) }
+            val c = panel().apply { setPadding(dp(16), dp(7), dp(14), dp(7)) }
             val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-            r.addView(text(pair.second, 16f), LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+            r.addView(text(pair.second, 16f), lp(0, 58).apply { weight = 1f })
             r.addView(text(if (custom.contains(pair.first)) "✓" else "＋", 22f, if (custom.contains(pair.first)) accent else muted))
             c.addView(r)
             c.setOnClickListener {
@@ -1556,10 +1560,10 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putStringSet("custom_notification_apps", custom).apply()
                 showInstalledAppsPicker()
             }
-            content.addView(c, LinearLayout.LayoutParams(-1, 74).apply { setMargins(0, 4, 0, 4) })
+            content.addView(c, lp(-1, 74).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
         }
         scroll.addView(content)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
