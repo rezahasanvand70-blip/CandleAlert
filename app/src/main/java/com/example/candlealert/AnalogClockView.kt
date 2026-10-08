@@ -112,15 +112,22 @@ class AnalogClockView(
             drawSessionBand(canvas, cx, cy, rr, bandWidth, session, selected.contains(session.name), now)
         }
 
+        // Hour markers are small dots placed outside the numerals, so they never cross the 1–24 labels.
+        tick.style = Paint.Style.FILL
         for (h in 0 until 24) {
             val angle = Math.toRadians(h * 15.0 - 90.0)
-            val outer = radius * 0.965f
-            val inner = if (h % 3 == 0) radius * 0.885f else radius * 0.915f
+            val markerRadius = radius * 0.972f
             tick.color = primary
-            tick.alpha = if (h % 3 == 0) 190 else 75
-            tick.strokeWidth = if (h % 3 == 0) u(2.4f) else u(1.0f)
-            canvas.drawLine(cx + cos(angle).toFloat() * inner, cy + sin(angle).toFloat() * inner, cx + cos(angle).toFloat() * outer, cy + sin(angle).toFloat() * outer, tick)
+            tick.alpha = if (h % 3 == 0) 190 else 85
+            val dotRadius = if (h % 3 == 0) u(2.0f) else u(1.25f)
+            canvas.drawCircle(
+                cx + cos(angle).toFloat() * markerRadius,
+                cy + sin(angle).toFloat() * markerRadius,
+                dotRadius,
+                tick
+            )
         }
+        tick.style = Paint.Style.STROKE
 
         number.textAlign = Paint.Align.CENTER
         number.textSize = radius * 0.058f
