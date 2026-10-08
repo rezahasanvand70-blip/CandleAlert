@@ -388,7 +388,7 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
-                        "Journal" -> startActivity(Intent(this, JournalActivity::class.java))
+                        "Journal" -> showJournal()
                         "Settings" -> showSettings()
                     }
                 }
