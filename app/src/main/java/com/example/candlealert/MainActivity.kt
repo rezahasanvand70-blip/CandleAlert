@@ -791,7 +791,7 @@ class MainActivity : AppCompatActivity() {
                 netPnl > 0.0 -> "PROFIT"
                 netPnl < 0.0 -> "LOSS"
                 else -> "BREAK-EVEN"
-            }, netColor)
+            }, netColor, "Duration", closedDurations.size.toString() + " closed", textColor)
         content.addView(summary, lp(-1, -2).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
 
         val initialBalance = prefs.getString("account_initial", "")?.toDoubleOrNull() ?: 0.0
