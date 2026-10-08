@@ -1301,7 +1301,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(4), dp(18), dp(8))
             addView(text("Change the actual time you closed the trade. The displayed duration will update automatically.", 13f, muted).apply {
-                setPadding(dp(0), dp(0), dp(0, dp(12))
+                setPadding(dp(0), dp(0), dp(0), dp(12))
             })
             addView(button, lp(-1, 50))
         }
