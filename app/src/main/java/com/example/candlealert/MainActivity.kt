@@ -25,7 +25,7 @@ class MainActivity : AppCompatActivity() {
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
     private fun dp(v: Float): Float = v * resources.displayMetrics.density
     private fun lp(width: Int, height: Int): LinearLayout.LayoutParams =
-        lp(if (width > 0) dp(width) else width, if (height > 0) dp(height) else height)
+        LinearLayout.LayoutParams(if (width > 0) dp(width) else width, if (height > 0) dp(height) else height)
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
 
     private val darkMode get() = when (prefs.getString("theme_mode", "light")) { "dark" -> true; "system" -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
