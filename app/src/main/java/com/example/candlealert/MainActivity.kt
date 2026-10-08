@@ -691,19 +691,51 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalConfirmNew(t: JournalTrade) {
-        var msg = t.symbol + "  " + t.direction +
-            "\nEntry: " + t.entry +
-            "\nSL: " + t.sl.ifBlank { "—" } +
-            "\nTP: " + t.tp.ifBlank { "—" }
-        journalRR(t)?.let { msg += "\nR:R: 1 : " + String.format(Locale.US, "%.2f", it) }
-        AlertDialog.Builder(this).setTitle("Review Trade").setMessage(msg + "\n\nSave as OPEN trade?")
+        // Use a custom, padded content view instead of AlertDialog's default message view.
+        // This prevents the second line (Entry) and other rows from being vertically clipped
+        // on smaller phones / larger font settings.
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 4, 24, 8)
+        }
+        fun addReviewRow(label: String, value: String) {
+            box.addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 7, 0, 7)
+                addView(text(label, 14f, muted), LinearLayout.LayoutParams(82, 34))
+                addView(text(value, 16f).apply {
+                    typeface = Typeface.DEFAULT_BOLD
+                }, LinearLayout.LayoutParams(0, 34).apply { weight = 1f })
+            })
+        }
+        addReviewRow("Symbol", t.symbol + "  " + t.direction)
+        addReviewRow("Entry", t.entry)
+        addReviewRow("SL", t.sl.ifBlank { "—" })
+        addReviewRow("TP", t.tp.ifBlank { "—" })
+        journalRR(t)?.let { addReviewRow("R:R", "1 : " + String.format(Locale.US, "%.2f", it)) }
+        box.addView(text("Save as OPEN trade?", 14f, muted).apply {
+            setPadding(0, 10, 0, 2)
+        })
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Review Trade")
+            .setView(box)
             .setNegativeButton("Back", null)
             .setPositiveButton("Save") { _, _ ->
                 val list = journalTrades()
                 list.add(t)
                 saveJournalTrades(list)
                 showJournal()
-            }.show()
+            }
+            .create()
+        dialog.setOnShowListener {
+            dialog.window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.90f).toInt(),
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
+        }
+        dialog.show()
     }
 
     private fun journalCloseTrade(t: JournalTrade) {
