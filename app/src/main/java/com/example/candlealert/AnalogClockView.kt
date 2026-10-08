@@ -14,6 +14,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 class AnalogClockView(
     context: Context,
@@ -50,6 +51,7 @@ class AnalogClockView(
     private val ringTrack = Paint(Paint.ANTI_ALIAS_FLAG)
     private val sessionPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val candlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
         tick.style = Paint.Style.STROKE
@@ -65,6 +67,8 @@ class AnalogClockView(
         sessionPaint.strokeCap = Paint.Cap.BUTT
         labelPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         labelPaint.textAlign = Paint.Align.CENTER
+        candlePaint.style = Paint.Style.STROKE
+        candlePaint.strokeCap = Paint.Cap.ROUND
         isFocusable = false
         isClickable = true
     }
@@ -75,7 +79,7 @@ class AnalogClockView(
         val size = min(width, height).toFloat()
         val cx = width / 2f
         val cy = height / 2f
-        val radius = (size / 2f - 16f).coerceAtLeast(1f)
+        val radius = (size / 2f - 22f).coerceAtLeast(1f)
         val prefs = context.getSharedPreferences("prefs", 0)
         val selected = prefs.getStringSet(
             "sessions",
@@ -83,37 +87,50 @@ class AnalogClockView(
         ) ?: emptySet()
         val now = ZonedDateTime.now()
 
-        // Clean dial surface, inspired by the simple Market24hClock presentation.
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF15191F.toInt() else 0xFFFFFFFF.toInt()
-        canvas.drawCircle(cx, cy, radius + 10f, face)
+        canvas.drawCircle(cx, cy, radius + 13f, face)
         face.style = Paint.Style.STROKE
         face.strokeWidth = 1.5f
         face.color = if (darkTheme) 0xFF3B434E.toInt() else 0xFFD8DEE6.toInt()
-        canvas.drawCircle(cx, cy, radius + 10f, face)
+        canvas.drawCircle(cx, cy, radius + 13f, face)
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF1B2027.toInt() else 0xFFF7F9FB.toInt()
         canvas.drawCircle(cx, cy, radius, face)
 
-        // Five broad, nested 24-hour session sectors. They are inside the dial,
-        // thick enough to carry the complete session name, and all use one color.
-        val bandBase = radius * 0.72f
-        val bandGap = radius * 0.095f
-        val bandWidth = radius * 0.075f
+        // Candle countdown: a dedicated circular progress ring around the whole clock.
+        val candle = candleState()
+        candlePaint.strokeWidth = radius * 0.035f
+        candlePaint.color = if (darkTheme) 0xFF536171.toInt() else 0xFFDCE3EB.toInt()
+        candlePaint.alpha = 220
+        canvas.drawCircle(cx, cy, radius + 7f, candlePaint)
+
+        candlePaint.color = accent
+        candlePaint.alpha = 235
+        val progressSweep = (candle.progress * 360f).coerceIn(0f, 359.9f)
+        canvas.drawArc(
+            RectF(cx - radius - 7f, cy - radius - 7f, cx + radius + 7f, cy + radius + 7f),
+            -90f,
+            progressSweep,
+            false,
+            candlePaint
+        )
+
+        // Broad session sectors inside the dial, following the visual language of a trader 24h clock.
+        val bandBase = radius * 0.76f
+        val bandGap = radius * 0.115f
+        val bandWidth = radius * 0.090f
 
         sessions.forEachIndexed { index, session ->
             val rr = bandBase - index * bandGap
-            drawSessionBand(
-                canvas, cx, cy, rr, bandWidth, session,
-                selected.contains(session.name), now
-            )
+            drawSessionBand(canvas, cx, cy, rr, bandWidth, session, selected.contains(session.name), now)
         }
 
-        // 24-hour scale: 00 at top, then clockwise through 23.
+        // Outer 24-hour scale.
         for (h in 0 until 24) {
             val angle = Math.toRadians(h * 15.0 - 90.0)
-            val outer = radius * 0.94f
-            val inner = if (h % 3 == 0) radius * 0.875f else radius * 0.90f
+            val outer = radius * 0.965f
+            val inner = if (h % 3 == 0) radius * 0.885f else radius * 0.915f
             tick.color = primary
             tick.alpha = if (h % 3 == 0) 190 else 75
             tick.strokeWidth = if (h % 3 == 0) 2.4f else 1.0f
@@ -127,80 +144,117 @@ class AnalogClockView(
         }
 
         number.textAlign = Paint.Align.CENTER
-        number.textSize = radius * 0.073f
+        number.textSize = radius * 0.072f
         number.color = primary
         number.alpha = 225
         for (h in 0 until 24) {
             val angle = Math.toRadians(h * 15.0 - 90.0)
-            val nr = radius * 0.83f
+            val nr = radius * 0.835f
             canvas.drawText(
                 h.toString().padStart(2, '0'),
                 cx + cos(angle).toFloat() * nr,
-                cy + sin(angle).toFloat() * nr -
-                    (number.ascent() + number.descent()) / 2f,
+                cy + sin(angle).toFloat() * nr - (number.ascent() + number.descent()) / 2f,
                 number
             )
         }
 
-        // Current-time position on the 24h dial.
+        // Current time position.
         val cal = Calendar.getInstance()
         val hour = cal.get(Calendar.HOUR_OF_DAY)
         val minute = cal.get(Calendar.MINUTE)
         val second = cal.get(Calendar.SECOND)
         val millis = cal.get(Calendar.MILLISECOND)
-        val currentHour = hour + (minute / 60f) + (second / 3600f) + (millis / 3600000f)
+        val currentHour = hour + minute / 60f + second / 3600f + millis / 3600000f
         val currentAngle = Math.toRadians(currentHour * 15.0 - 90.0)
 
-        // Thin "now" line, a key visual cue in a 24-hour trader clock.
         hand.color = accent
-        hand.alpha = 210
+        hand.alpha = 220
         hand.strokeWidth = 2.5f
         canvas.drawLine(
-            cx + cos(currentAngle).toFloat() * radius * 0.18f,
-            cy + sin(currentAngle).toFloat() * radius * 0.18f,
-            cx + cos(currentAngle).toFloat() * radius * 0.77f,
-            cy + sin(currentAngle).toFloat() * radius * 0.77f,
+            cx + cos(currentAngle).toFloat() * radius * 0.20f,
+            cy + sin(currentAngle).toFloat() * radius * 0.20f,
+            cx + cos(currentAngle).toFloat() * radius * 0.92f,
+            cy + sin(currentAngle).toFloat() * radius * 0.92f,
             hand
         )
 
-        // Central clock hands retain the familiar analog reading.
+        // Mechanical analog hands.
         val secondFloat = second + millis / 1000f
         val minuteFloat = minute + secondFloat / 60f
         val hourFloat = hour + minuteFloat / 60f
-        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat * 15f - 90f, 7f, primary)
-        drawHand(canvas, cx, cy, radius * 0.38f, minuteFloat * 6f - 90f, 4.5f, primary)
-        drawHand(canvas, cx, cy, radius * 0.49f, secondFloat * 6f - 90f, 2f, accent)
+        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat * 30f - 90f, 7f, primary)
+        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, 4.5f, primary)
+        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, 2f, accent)
+
+        // Computer/digital clock is deliberately centered inside the analog clock.
+        face.style = Paint.Style.FILL
+        face.color = if (darkTheme) 0xFF1B2027.toInt() else 0xFFF7F9FB.toInt()
+        canvas.drawRoundRect(
+            RectF(cx - radius * 0.19f, cy - radius * 0.075f, cx + radius * 0.19f, cy + radius * 0.075f),
+            radius * 0.035f, radius * 0.035f, face
+        )
+        digital.color = primary
+        digital.textSize = radius * 0.082f
+        val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
+        canvas.drawText(timeText, cx, cy - (digital.ascent() + digital.descent()) / 2f, digital)
 
         center.color = primary
-        canvas.drawCircle(cx, cy, 7f, center)
+        canvas.drawCircle(cx, cy, 6f, center)
         center.color = accent
-        canvas.drawCircle(cx, cy, 3f, center)
+        canvas.drawCircle(cx, cy, 2.5f, center)
 
-        // Digital local time in the center, without competing with the session sectors.
-        digital.color = primary
-        digital.textSize = radius * 0.085f
-        val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
-        canvas.drawText(timeText, cx, cy + radius * 0.60f, digital)
+        // Candle countdown text near the bottom of the dial, while the progress ring remains around it.
+        digital.color = accent
+        digital.textSize = radius * 0.052f
+        val candleText = formatCandle(candle.remainingSeconds)
+        canvas.drawText("CANDLE  $candleText", cx, cy + radius * 0.23f, digital)
 
-        // Full session names are printed on their respective sectors.
+        // Session names live directly inside their own broad sectors.
         labelPaint.textSize = radius * 0.050f
         sessions.forEachIndexed { index, session ->
             val rr = bandBase - index * bandGap
             val local = sessionLocalInterval(session, now)
             val mid = midpointAngle(local.first, local.second)
             val angle = Math.toRadians(mid * 15.0 - 90.0)
-            labelPaint.color = session.color
+            labelPaint.color = if (darkTheme) ColorForLabel(session.color, true) else session.color
             labelPaint.alpha = if (selected.contains(session.name)) 245 else 55
             canvas.drawText(
                 session.name,
                 cx + cos(angle).toFloat() * rr,
-                cy + sin(angle).toFloat() * rr -
-                    (labelPaint.ascent() + labelPaint.descent()) / 2f,
+                cy + sin(angle).toFloat() * rr - (labelPaint.ascent() + labelPaint.descent()) / 2f,
                 labelPaint
             )
         }
 
         postInvalidateDelayed(120)
+    }
+
+    private data class CandleState(val progress: Float, val remainingSeconds: Long)
+
+    private fun candleState(): CandleState {
+        val tf = timeframeMinutesProvider().coerceAtLeast(1)
+        val now = ZonedDateTime.now()
+        val parts = (context.getSharedPreferences("prefs", 0).getString("open_market", "00:00") ?: "00:00").split(":")
+        val openH = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 0
+        val openM = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+        var anchor = now.toLocalDate().atTime(openH, openM).atZone(now.zone)
+        if (now.isBefore(anchor)) anchor = anchor.minusDays(1)
+        val elapsed = Duration.between(anchor, now).toMillis()
+        val period = tf * 60_000L
+        val into = ((elapsed % period) + period) % period
+        val remaining = period - into
+        val progress = (into.toDouble() / period.toDouble()).toFloat()
+        return CandleState(progress, (remaining / 1000L).coerceAtLeast(0L))
+    }
+
+    private fun formatCandle(seconds: Long): String {
+        val m = seconds / 60L
+        val s = seconds % 60L
+        return String.format(Locale.getDefault(), "%02d:%02d", m, s)
+    }
+
+    private fun ColorForLabel(color: Int, dark: Boolean): Int {
+        return if (!dark) color else 0xFF8FBFFF.toInt()
     }
 
     private fun drawSessionBand(
@@ -238,25 +292,16 @@ class AnalogClockView(
     private fun sessionLocalInterval(session: Session, now: ZonedDateTime): Pair<Float, Float> {
         val localZone = ZoneId.systemDefault()
         val sourceDate = now.withZoneSameInstant(ZoneId.of(session.zone)).toLocalDate()
-
-        val startSource = ZonedDateTime.of(
-            sourceDate,
-            LocalTime.of(session.startHour, 0),
-            ZoneId.of(session.zone)
-        )
+        val zone = ZoneId.of(session.zone)
+        val startSource = ZonedDateTime.of(sourceDate, LocalTime.of(session.startHour, 0), zone)
         val endDate = if (session.endHour <= session.startHour) sourceDate.plusDays(1) else sourceDate
-        val endSource = ZonedDateTime.of(
-            endDate,
-            LocalTime.of(session.endHour, 0),
-            ZoneId.of(session.zone)
-        )
-
+        val endSource = ZonedDateTime.of(endDate, LocalTime.of(session.endHour, 0), zone)
         val startLocal = startSource.withZoneSameInstant(localZone)
         val endLocal = endSource.withZoneSameInstant(localZone)
-
-        val startHour = startLocal.hour + startLocal.minute / 60f
-        val endHour = endLocal.hour + endLocal.minute / 60f
-        return Pair(startHour, endHour)
+        return Pair(
+            startLocal.hour + startLocal.minute / 60f,
+            endLocal.hour + endLocal.minute / 60f
+        )
     }
 
     private fun midpointAngle(start: Float, end: Float): Float {
@@ -268,22 +313,20 @@ class AnalogClockView(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action != MotionEvent.ACTION_UP) return true
-
         val cx = width / 2f
         val cy = height / 2f
         val dx = event.x - cx
         val dy = event.y - cy
-        val distance = kotlin.math.sqrt(dx * dx + dy * dy)
+        val distance = sqrt(dx * dx + dy * dy)
         val size = min(width, height).toFloat()
-        val radius = (size / 2f - 18f).coerceAtLeast(1f)
-
-        val bandBase = radius * 0.72f
-        val bandGap = radius * 0.095f
-        val bandWidth = radius * 0.075f
+        val radius = (size / 2f - 24f).coerceAtLeast(1f)
+        val bandBase = radius * 0.76f
+        val bandGap = radius * 0.115f
+        val bandWidth = radius * 0.090f
 
         var hitIndex = -1
         var hitDistance = Float.MAX_VALUE
-        sessions.forEachIndexed { index, session ->
+        sessions.forEachIndexed { index, _ ->
             val rr = bandBase - index * bandGap
             val d = kotlin.math.abs(distance - rr)
             if (d <= bandWidth * 1.7f && d < hitDistance) {
@@ -297,10 +340,8 @@ class AnalogClockView(
             var hour = angle / 15f
             while (hour < 0f) hour += 24f
             while (hour >= 24f) hour -= 24f
-
             val session = sessions[hitIndex]
-            val now = ZonedDateTime.now()
-            val local = sessionLocalInterval(session, now)
+            val local = sessionLocalInterval(session, ZonedDateTime.now())
             if (isHourInRange(hour, local.first, local.second)) {
                 onSessionToggle(session.name)
                 return true
@@ -310,8 +351,7 @@ class AnalogClockView(
     }
 
     private fun isHourInRange(hour: Float, start: Float, end: Float): Boolean {
-        return if (start <= end) hour >= start && hour < end
-        else hour >= start || hour < end
+        return if (start <= end) hour >= start && hour < end else hour >= start || hour < end
     }
 
     private fun drawHand(
@@ -326,12 +366,6 @@ class AnalogClockView(
         hand.color = color
         hand.strokeWidth = width
         val radians = Math.toRadians(degrees.toDouble())
-        canvas.drawLine(
-            cx,
-            cy,
-            cx + cos(radians).toFloat() * length,
-            cy + sin(radians).toFloat() * length,
-            hand
-        )
+        canvas.drawLine(cx, cy, cx + cos(radians).toFloat() * length, cy + sin(radians).toFloat() * length, hand)
     }
 }
