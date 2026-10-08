@@ -166,12 +166,12 @@ class MainActivity : AppCompatActivity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
 
         // ALERT ACTIVE — deliberately above the clock and given enough height for all text.
-        val status = panel().apply { setPadding(18, 14, 18, 14) }
+        val status = panel().apply { setPadding(20, 18, 20, 18) }
         val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val enabled = prefs.getBoolean("enabled", true)
         statusRow.addView(text("●", 22f, if (enabled) green else red).apply {
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(32, 58))
+        }, LinearLayout.LayoutParams(36, 70))
         val statusTexts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
@@ -186,16 +186,18 @@ class MainActivity : AppCompatActivity() {
         statusRow.addView(statusTexts, LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
         val sw = Switch(this).apply {
             isChecked = enabled
-            minWidth = 58
+            minWidth = 62
+            scaleX = 1.08f
+            scaleY = 1.08f
         }
-        statusRow.addView(sw, LinearLayout.LayoutParams(62, 52))
+        statusRow.addView(sw, LinearLayout.LayoutParams(68, 58))
         status.addView(statusRow)
         sw.setOnCheckedChangeListener { _, value ->
             prefs.edit().putBoolean("enabled", value).apply()
             Scheduler.scheduleNext(this)
             showHome()
         }
-        content.addView(status, LinearLayout.LayoutParams(-1, 94).apply {
+        content.addView(status, LinearLayout.LayoutParams(-1, 112).apply {
             setMargins(0, 8, 0, 12)
         })
 
