@@ -254,7 +254,7 @@ class MainActivity : AppCompatActivity() {
             Scheduler.scheduleNext(this)
             showHome()
         }
-        content.addView(clock, lp(-1, clockSize).apply {
+        content.addView(clock, LinearLayout.LayoutParams(-1, clockSize).apply {
             setMargins(dp(0), dp(0), dp(0), dp(4))
         })
 
