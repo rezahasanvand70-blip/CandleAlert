@@ -197,7 +197,7 @@ class MainActivity : AppCompatActivity() {
             Scheduler.scheduleNext(this)
             showHome()
         }
-        content.addView(status, LinearLayout.LayoutParams(-1, 112).apply {
+        content.addView(status, LinearLayout.LayoutParams(-1, 116).apply {
             setMargins(0, 8, 0, 12)
         })
 
