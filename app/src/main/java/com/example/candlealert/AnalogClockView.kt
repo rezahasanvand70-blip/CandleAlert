@@ -25,6 +25,8 @@ class AnalogClockView(
     private val timeframeMinutesProvider: () -> Int,
     private val onSessionToggle: (String) -> Unit
 ) : View(context) {
+    private fun u(v: Float): Float = v * resources.displayMetrics.density
+
 
     private data class Session(val name: String, val zone: String, val startHour: Int, val endHour: Int, val color: Int)
 
@@ -73,7 +75,7 @@ class AnalogClockView(
         val size = min(width, height).toFloat()
         val cx = width / 2f
         val cy = height / 2f
-        val radius = (size / 2f - 22f).coerceAtLeast(1f)
+        val radius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
         val prefs = context.getSharedPreferences("prefs", 0)
         val selected = prefs.getStringSet("sessions", sessions.map { it.name }.toSet()) ?: emptySet()
         val deviceZone = ZoneId.systemDefault()
@@ -81,11 +83,11 @@ class AnalogClockView(
 
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF15191F.toInt() else 0xFFFFFFFF.toInt()
-        canvas.drawCircle(cx, cy, radius + 13f, face)
+        canvas.drawCircle(cx, cy, radius + u(13f), face)
         face.style = Paint.Style.STROKE
-        face.strokeWidth = 1.5f
+        face.strokeWidth = u(1.5f)
         face.color = if (darkTheme) 0xFF3B434E.toInt() else 0xFFD8DEE6.toInt()
-        canvas.drawCircle(cx, cy, radius + 13f, face)
+        canvas.drawCircle(cx, cy, radius + u(13f), face)
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF1B2027.toInt() else 0xFFF7F9FB.toInt()
         canvas.drawCircle(cx, cy, radius, face)
@@ -94,11 +96,11 @@ class AnalogClockView(
         candlePaint.strokeWidth = radius * 0.035f
         candlePaint.color = if (darkTheme) 0xFF536171.toInt() else 0xFFDCE3EB.toInt()
         candlePaint.alpha = 220
-        canvas.drawCircle(cx, cy, radius + 7f, candlePaint)
+        canvas.drawCircle(cx, cy, radius + u(7f), candlePaint)
         candlePaint.color = accent
         candlePaint.alpha = 235
         val progressSweep = (candle.progress * 360f).coerceIn(0f, 359.9f)
-        canvas.drawArc(RectF(cx - radius - 7f, cy - radius - 7f, cx + radius + 7f, cy + radius + 7f), -90f, progressSweep, false, candlePaint)
+        canvas.drawArc(RectF(cx - radius - u(7f), cy - radius - u(7f), cx + radius + u(7f), cy + radius + u(7f)), -90f, progressSweep, false, candlePaint)
 
         val bandBase = radius * 0.76f
         val bandGap = radius * 0.115f
@@ -116,7 +118,7 @@ class AnalogClockView(
             val inner = if (h % 3 == 0) radius * 0.885f else radius * 0.915f
             tick.color = primary
             tick.alpha = if (h % 3 == 0) 190 else 75
-            tick.strokeWidth = if (h % 3 == 0) 2.4f else 1.0f
+            tick.strokeWidth = if (h % 3 == 0) u(2.4f) else u(1.0f)
             canvas.drawLine(cx + cos(angle).toFloat() * inner, cy + sin(angle).toFloat() * inner, cx + cos(angle).toFloat() * outer, cy + sin(angle).toFloat() * outer, tick)
         }
 
@@ -147,13 +149,13 @@ class AnalogClockView(
         val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
         canvas.drawText(timeText, cx, cy - (digital.ascent() + digital.descent()) / 2f, digital)
 
-        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, 7f, primary)
-        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, 4.5f, primary)
-        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, 2f, primary)
+        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, u(7f), primary)
+        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), primary)
+        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), primary)
 
         center.color = primary
-        canvas.drawCircle(cx, cy, 6f, center)
-        canvas.drawCircle(cx, cy, 2.5f, center)
+        canvas.drawCircle(cx, cy, u(6f), center)
+        canvas.drawCircle(cx, cy, u(2.5f), center)
 
         // Candle timer is directly below the digital clock, centered on the same axis.
         digital.color = primary
@@ -260,7 +262,7 @@ class AnalogClockView(
         val dy = event.y - cy
         val distance = sqrt(dx * dx + dy * dy)
         val size = min(width, height).toFloat()
-        val radius = (size / 2f - 24f).coerceAtLeast(1f)
+        val radius = (size / 2f - u(24f)).coerceAtLeast(u(1f))
         val bandBase = radius * 0.76f
         val bandGap = radius * 0.115f
         val bandWidth = radius * 0.090f
