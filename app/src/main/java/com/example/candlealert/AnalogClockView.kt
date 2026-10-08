@@ -121,12 +121,12 @@ class AnalogClockView(
         }
 
         number.textAlign = Paint.Align.CENTER
-        number.textSize = radius * 0.072f
+        number.textSize = radius * 0.058f
         number.color = primary
         number.alpha = 225
         for (h in 0 until 24) {
             val angle = Math.toRadians(h * 15.0 - 90.0)
-            val nr = radius * 0.835f
+            val nr = radius * 0.900f
             canvas.drawText(h.toString().padStart(2, '0'), cx + cos(angle).toFloat() * nr, cy + sin(angle).toFloat() * nr - (number.ascent() + number.descent()) / 2f, number)
         }
 
