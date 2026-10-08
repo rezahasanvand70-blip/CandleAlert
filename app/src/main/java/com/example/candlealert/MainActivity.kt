@@ -441,7 +441,7 @@ class MainActivity : AppCompatActivity() {
                 ))
             }
         } catch (_: Exception) { }
-        return result.sortedByDescending { it.entryTime }
+        return result.sortedByDescending { it.entryTime }.toMutableList()
     }
 
     private fun saveTrades(trades: List<JournalTrade>) {
