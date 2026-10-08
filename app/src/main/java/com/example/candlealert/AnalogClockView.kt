@@ -8,7 +8,6 @@ import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
 import java.time.*
-import java.util.Calendar
 import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -35,11 +34,14 @@ class AnalogClockView(
     )
 
     private val sessions = listOf(
-        Session("Sydney", "Australia/Sydney", 22, 7, 0xFF1677FF.toInt()),
-        Session("Tokyo", "Asia/Tokyo", 0, 9, 0xFF1677FF.toInt()),
-        Session("Frankfurt", "Europe/Berlin", 7, 16, 0xFF1677FF.toInt()),
+        // Each market is defined in its own local business hours.
+        // The IANA zone is converted to the phone's current system timezone,
+        // including each market's daylight-saving rules.
+        Session("Sydney", "Australia/Sydney", 8, 17, 0xFF1677FF.toInt()),
+        Session("Tokyo", "Asia/Tokyo", 9, 18, 0xFF1677FF.toInt()),
+        Session("Frankfurt", "Europe/Berlin", 8, 17, 0xFF1677FF.toInt()),
         Session("London", "Europe/London", 8, 17, 0xFF1677FF.toInt()),
-        Session("New York", "America/New_York", 13, 22, 0xFF1677FF.toInt())
+        Session("New York", "America/New_York", 8, 17, 0xFF1677FF.toInt())
     )
 
     private val face = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -85,7 +87,8 @@ class AnalogClockView(
             "sessions",
             sessions.map { it.name }.toSet()
         ) ?: emptySet()
-        val now = ZonedDateTime.now()
+        val deviceZone = ZoneId.systemDefault()
+        val now = ZonedDateTime.now(deviceZone)
 
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF15191F.toInt() else 0xFFFFFFFF.toInt()
@@ -159,11 +162,10 @@ class AnalogClockView(
         }
 
         // Current time position.
-        val cal = Calendar.getInstance()
-        val hour = cal.get(Calendar.HOUR_OF_DAY)
-        val minute = cal.get(Calendar.MINUTE)
-        val second = cal.get(Calendar.SECOND)
-        val millis = cal.get(Calendar.MILLISECOND)
+        val hour = now.hour
+        val minute = now.minute
+        val second = now.second
+        val millis = now.nano / 1_000_000
         val currentHour = hour + minute / 60f + second / 3600f + millis / 3600000f
         val currentAngle = Math.toRadians(currentHour * 15.0 - 90.0)
 
@@ -233,7 +235,8 @@ class AnalogClockView(
 
     private fun candleState(): CandleState {
         val tf = timeframeMinutesProvider().coerceAtLeast(1)
-        val now = ZonedDateTime.now()
+        val deviceZone = ZoneId.systemDefault()
+        val now = ZonedDateTime.now(deviceZone)
         val parts = (context.getSharedPreferences("prefs", 0).getString("open_market", "00:00") ?: "00:00").split(":")
         val openH = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 0
         val openM = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
@@ -291,8 +294,8 @@ class AnalogClockView(
 
     private fun sessionLocalInterval(session: Session, now: ZonedDateTime): Pair<Float, Float> {
         val localZone = ZoneId.systemDefault()
-        val sourceDate = now.withZoneSameInstant(ZoneId.of(session.zone)).toLocalDate()
         val zone = ZoneId.of(session.zone)
+        val sourceDate = now.withZoneSameInstant(zone).toLocalDate()
         val startSource = ZonedDateTime.of(sourceDate, LocalTime.of(session.startHour, 0), zone)
         val endDate = if (session.endHour <= session.startHour) sourceDate.plusDays(1) else sourceDate
         val endSource = ZonedDateTime.of(endDate, LocalTime.of(session.endHour, 0), zone)
@@ -341,7 +344,7 @@ class AnalogClockView(
             while (hour < 0f) hour += 24f
             while (hour >= 24f) hour -= 24f
             val session = sessions[hitIndex]
-            val local = sessionLocalInterval(session, ZonedDateTime.now())
+            val local = sessionLocalInterval(session, ZonedDateTime.now(ZoneId.systemDefault()))
             if (isHourInRange(hour, local.first, local.second)) {
                 onSessionToggle(session.name)
                 return true
