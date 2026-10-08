@@ -22,24 +22,50 @@ object GoogleSheetsApi {
 
     private fun request() = AuthorizationRequest.builder().setRequestedScopes(listOf(Scope(SCOPE))).build()
 
+    @Volatile var lastError: String = ""
+
     fun requestAuthorization(activity: Activity, allowResolution: Boolean, onAuthorized: (AuthorizationResult) -> Unit) {
+        lastError = ""
         Identity.getAuthorizationClient(activity).authorize(request())
             .addOnSuccessListener { result ->
                 if (result.hasResolution()) {
-                    if (!allowResolution) return@addOnSuccessListener
+                    if (!allowResolution) { lastError = "Google permission needs user approval."; return@addOnSuccessListener }
+                    val pending = result.pendingIntent
+                    if (pending == null) {
+                        lastError = "Google returned a permission request without a resolution."
+                        android.widget.Toast.makeText(activity, lastError, android.widget.Toast.LENGTH_LONG).show()
+                        return@addOnSuccessListener
+                    }
                     try {
-                        result.pendingIntent?.let { startIntentSenderForResult(activity, it.intentSender, REQUEST_CODE, null, 0, 0, 0, null) }
-                    } catch (_: Exception) {}
+                        startIntentSenderForResult(activity, pending.intentSender, REQUEST_CODE, null, 0, 0, 0, null)
+                    } catch (e: Exception) {
+                        lastError = "Could not open Google permission screen: " + (e.message ?: "unknown error")
+                        android.widget.Toast.makeText(activity, lastError, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                } else if (result.accessToken.isNullOrBlank()) {
+                    lastError = "Google authorization returned no access token."
+                    android.widget.Toast.makeText(activity, lastError, android.widget.Toast.LENGTH_LONG).show()
                 } else onAuthorized(result)
             }
-            .addOnFailureListener {
-                if (allowResolution) android.widget.Toast.makeText(activity, "Google authorization is unavailable on this device.", android.widget.Toast.LENGTH_LONG).show()
+            .addOnFailureListener { e ->
+                lastError = "Google authorization failed: " + (e.message ?: e.javaClass.simpleName)
+                android.widget.Toast.makeText(activity, lastError, android.widget.Toast.LENGTH_LONG).show()
             }
     }
 
-    fun handleAuthorizationResult(activity: Activity, data: Intent?): AuthorizationResult? =
-        try { if (data == null) null else Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(data) } catch (_: Exception) { null }
-
+    fun handleAuthorizationResult(activity: Activity, data: Intent?): AuthorizationResult? {
+        return try {
+            if (data == null) { lastError = "Google did not return an authorization result."; null }
+            else {
+                val result = Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(data)
+                if (result.accessToken.isNullOrBlank()) lastError = "Google authorization finished without an access token." else lastError = ""
+                result
+            }
+        } catch (e: Exception) {
+            lastError = "Google authorization result error: " + (e.message ?: e.javaClass.simpleName)
+            null
+        }
+    }
     data class CreatedSheet(val id: String, val url: String)
 
     fun createJournalSheet(token: String): CreatedSheet? {
@@ -100,7 +126,14 @@ object GoogleSheetsApi {
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val response = stream?.let { BufferedReader(InputStreamReader(it, Charsets.UTF_8)).use { r -> r.readText() } } ?: ""
             conn.disconnect()
-            if (code in 200..299) response else null
-        } catch (_: Exception) { null }
+            if (code in 200..299) response
+            else { lastError = "Google Sheets HTTP $code" + if (response.isNotBlank()) ": " + extractGoogleError(response) else ""; null }
+        } catch (e: Exception) { lastError = "Google Sheets connection error: " + (e.message ?: e.javaClass.simpleName); null }
     }
+
+    private fun extractGoogleError(response: String): String = try {
+        val obj = JSONObject(response)
+        val message = obj.optJSONObject("error")?.optString("message")?.trim().orEmpty()
+        if (message.isNotBlank()) message else response.take(220)
+    } catch (_: Exception) { response.take(220) }
 }
