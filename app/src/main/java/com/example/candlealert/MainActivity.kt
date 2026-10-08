@@ -1309,9 +1309,6 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Done") { _, _ -> journalSaveEditedTrade(t) }
             .show()
-                journalEditPnlStep(t)
-            }
-        }
     }
 
     private fun journalEditPnlStep(t: JournalTrade) {
