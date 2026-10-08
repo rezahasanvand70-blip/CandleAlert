@@ -166,38 +166,38 @@ class MainActivity : AppCompatActivity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0).apply { weight = 1f })
 
         // ALERT ACTIVE — deliberately above the clock and given enough height for all text.
-        val status = panel().apply { setPadding(20, 18, 20, 18) }
+        val status = panel().apply { setPadding(24, 22, 24, 22) }
         val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val enabled = prefs.getBoolean("enabled", true)
         statusRow.addView(text("●", 22f, if (enabled) green else red).apply {
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(36, 70))
+        }, LinearLayout.LayoutParams(42, 84))
         val statusTexts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        statusTexts.addView(text(if (enabled) "Alerts active" else "Alerts paused", 16f).apply {
+        statusTexts.addView(text(if (enabled) "Alerts active" else "Alerts paused", 19f).apply {
             typeface = Typeface.DEFAULT_BOLD
         })
         statusTexts.addView(text(
             if (enabled) "Next candle alert is scheduled." else "Turn alerts on to schedule the next candle.",
             12f, muted
         ).apply { setPadding(0, 5, 0, 0) })
-        statusRow.addView(statusTexts, LinearLayout.LayoutParams(0, 58).apply { weight = 1f })
+        statusRow.addView(statusTexts, LinearLayout.LayoutParams(0, 72).apply { weight = 1f })
         val sw = Switch(this).apply {
             isChecked = enabled
             minWidth = 62
             scaleX = 1.08f
             scaleY = 1.08f
         }
-        statusRow.addView(sw, LinearLayout.LayoutParams(68, 58))
+        statusRow.addView(sw, LinearLayout.LayoutParams(76, 72))
         status.addView(statusRow)
         sw.setOnCheckedChangeListener { _, value ->
             prefs.edit().putBoolean("enabled", value).apply()
             Scheduler.scheduleNext(this)
             showHome()
         }
-        content.addView(status, LinearLayout.LayoutParams(-1, 116).apply {
+        content.addView(status, LinearLayout.LayoutParams(-1, 138).apply {
             setMargins(0, 8, 0, 12)
         })
 
