@@ -163,34 +163,18 @@ class AnalogClockView(
             )
         }
 
-        // Current time position.
+        // True 24-hour analog clock.
+        // The hour hand completes one revolution in 24 hours (15° per hour),
+        // while the minute and second hands keep their normal 60-minute/60-second motion.
         val hour = now.hour
         val minute = now.minute
         val second = now.second
         val millis = now.nano / 1_000_000
-        val currentHour = hour + minute / 60f + second / 3600f + millis / 3600000f
-        val currentAngle = Math.toRadians(currentHour * 15.0 - 90.0)
-
-        hand.color = accent
-        hand.alpha = 220
-        hand.strokeWidth = 2.5f
-        canvas.drawLine(
-            cx + cos(currentAngle).toFloat() * radius * 0.20f,
-            cy + sin(currentAngle).toFloat() * radius * 0.20f,
-            cx + cos(currentAngle).toFloat() * radius * 0.92f,
-            cy + sin(currentAngle).toFloat() * radius * 0.92f,
-            hand
-        )
-
-        // Mechanical analog hands.
         val secondFloat = second + millis / 1000f
         val minuteFloat = minute + secondFloat / 60f
-        val hourFloat = hour + minuteFloat / 60f
-        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat * 30f - 90f, 7f, primary)
-        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, 4.5f, primary)
-        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, 2f, accent)
+        val hourFloat24 = hour + minuteFloat / 60f
 
-        // Computer/digital clock is deliberately centered inside the analog clock.
+        // Computer/digital clock sits underneath the hands.
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF1B2027.toInt() else 0xFFF7F9FB.toInt()
         canvas.drawRoundRect(
@@ -202,16 +186,21 @@ class AnalogClockView(
         val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
         canvas.drawText(timeText, cx, cy - (digital.ascent() + digital.descent()) / 2f, digital)
 
+        // Black hands are drawn over the digital clock.
+        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, 7f, primary)
+        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, 4.5f, primary)
+        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, 2f, primary)
+
         center.color = primary
         canvas.drawCircle(cx, cy, 6f, center)
-        center.color = accent
+        center.color = primary
         canvas.drawCircle(cx, cy, 2.5f, center)
 
-        // Candle countdown text near the bottom of the dial, while the progress ring remains around it.
-        digital.color = accent
-        digital.textSize = radius * 0.052f
+        // Compact candle countdown stays fully inside the dial.
+        digital.color = primary
+        digital.textSize = radius * 0.040f
         val candleText = formatCandle(candle.remainingSeconds)
-        canvas.drawText("CANDLE  $candleText", cx, cy + radius * 0.23f, digital)
+        canvas.drawText("CANDLE  $candleText", cx, cy + radius * 0.22f, digital)
 
         // Session names are centered on the middle of each session arc and follow
         // the arc itself. Text is white to contrast with the blue session band.
@@ -228,13 +217,14 @@ class AnalogClockView(
 
             val path = Path()
             val arcSpan = min(
-                26f,
-                ((local.second - local.first + 24f) % 24f).coerceAtLeast(4f) * 15f * 0.55f
+                44f,
+                ((local.second - local.first + 24f) % 24f).coerceAtLeast(4f) * 15f * 0.72f
             )
             val start = angleDeg - arcSpan / 2f
             path.addArc(RectF(cx - rr, cy - rr, cx + rr, cy + rr), start, arcSpan)
             val arcLength = arcSpan * Math.PI.toFloat() / 180f * rr
             val textWidth = labelPaint.measureText(session.name)
+            // Start the text exactly so its visual center lands on the session midpoint.
             val hOffset = ((arcLength - textWidth) / 2f).coerceAtLeast(0f)
             canvas.drawTextOnPath(session.name, path, hOffset, 0f, labelPaint)
         }
