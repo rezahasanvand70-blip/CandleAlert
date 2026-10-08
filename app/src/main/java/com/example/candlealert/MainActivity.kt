@@ -496,6 +496,21 @@ class MainActivity : AppCompatActivity() {
         return if (t.direction == "BUY") e + risk * 2.0 else e - risk * 2.0
     }
 
+    private fun journalEditAsk(title: String, hint: String, initial: String = "", onDone: (String) -> Unit) {
+        val e = EditText(this).apply {
+            setText(initial)
+            this.hint = hint
+            textSize = 18f
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(e)
+            .setNegativeButton("Cancel", null)
+            .setNeutralButton("Keep") { _, _ -> onDone(initial) }
+            .setPositiveButton("Save") { _, _ -> onDone(e.text.toString().trim()) }
+            .show()
+    }
+
     private fun showJournal() {
         val root = base()
         root.addView(text("Journal", 28f))
@@ -515,6 +530,50 @@ class MainActivity : AppCompatActivity() {
         content.addView(smallButton("+  Add Trade", true).apply {
             setOnClickListener { journalAddTrade() }
         }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 4, 0, 14) })
+
+        // Compact performance summary belongs to the Journal, not Home.
+        val closedWithPnl = closed.mapNotNull { it.pnl.toDoubleOrNull() }
+        val wins = closedWithPnl.count { it > 0.0 }
+        val losses = closedWithPnl.count { it < 0.0 }
+        val grossProfit = closedWithPnl.filter { it > 0.0 }.sum()
+        val grossLoss = kotlin.math.abs(closedWithPnl.filter { it < 0.0 }.sum())
+        val netPnl = closedWithPnl.sum()
+        val winRate = if (closedWithPnl.isNotEmpty()) wins.toDouble() / closedWithPnl.size * 100.0 else null
+        val profitFactor = if (grossLoss > 0.0) grossProfit / grossLoss else null
+        val plannedRRs = trades.mapNotNull { journalRR(it) }
+        val avgPlannedRR = if (plannedRRs.isNotEmpty()) plannedRRs.average() else null
+
+        val summary = panel().apply { setPadding(16, 14, 16, 14) }
+        summary.addView(text("PERFORMANCE SUMMARY", 11f, muted).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, 0, 0, 10)
+        })
+        fun summaryRow(leftLabel: String, leftValue: String, rightLabel: String, rightValue: String) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 5, 0, 5)
+            }
+            fun cell(label: String, value: String): LinearLayout {
+                return LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(text(label, 11f, muted))
+                    addView(text(value, 15f).apply {
+                        typeface = Typeface.DEFAULT_BOLD
+                        setPadding(0, 3, 0, 0)
+                    })
+                }
+            }
+            row.addView(cell(leftLabel, leftValue), LinearLayout.LayoutParams(0, 52).apply { weight = 1f })
+            row.addView(cell(rightLabel, rightValue), LinearLayout.LayoutParams(0, 52).apply { weight = 1f })
+            summary.addView(row)
+        }
+        summaryRow("Total Trades", trades.size.toString(), "Open", open.size.toString())
+        summaryRow("Closed", closed.size.toString(), "Win Rate", winRate?.let { String.format(Locale.US, "%.1f%%", it) } ?: "—")
+        summaryRow("Net P/L", if (closedWithPnl.isNotEmpty()) String.format(Locale.US, "%.2f", netPnl) else "—",
+            "Profit Factor", profitFactor?.let { String.format(Locale.US, "%.2f", it) } ?: if (grossProfit > 0.0 && grossLoss == 0.0) "∞" else "—")
+        summaryRow("Wins / Losses", "$wins / $losses", "Avg Planned R:R", avgPlannedRR?.let { "1 : " + String.format(Locale.US, "%.2f", it) } ?: "—")
+        content.addView(summary, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 14) })
 
         if (open.isNotEmpty()) {
             content.addView(text("OPEN TRADES", 11f, muted).apply {
@@ -571,8 +630,8 @@ class MainActivity : AppCompatActivity() {
                 "   TP " + t.tp.ifBlank { "—" }, 12f, muted
         ).apply { setPadding(0, 8, 0, 0) })
         val rr = journalRR(t)
-        if (isOpen && rr != null) {
-            c.addView(text("R:R  1 : " + String.format(Locale.US, "%.2f", rr), 12f, accent).apply {
+        if (rr != null) {
+            c.addView(text("Planned R:R  1 : " + String.format(Locale.US, "%.2f", rr), 12f, accent).apply {
                 setPadding(0, 5, 0, 0)
             })
         }
@@ -581,6 +640,9 @@ class MainActivity : AppCompatActivity() {
                 "Exit " + t.exit.ifBlank { "—" } + "   •   P/L " + t.pnl.ifBlank { "—" },
                 13f, if ((t.pnl.toDoubleOrNull() ?: 0.0) >= 0) green else red
             ).apply { setPadding(0, 5, 0, 0) })
+            if (t.exitReason.isNotBlank()) {
+                c.addView(text("Reason: " + t.exitReason, 12f, muted).apply { setPadding(0, 4, 0, 0) })
+            }
         }
         val actions = LinearLayout(this).apply { gravity = Gravity.END; setPadding(0, 10, 0, 0) }
         actions.addView(smallButton("Edit").apply { setOnClickListener { journalEditTrade(t) } })
@@ -692,9 +754,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalConfirmNew(t: JournalTrade) {
-        // Use a custom, padded content view instead of AlertDialog's default message view.
-        // This prevents the second line (Entry) and other rows from being vertically clipped
-        // on smaller phones / larger font settings.
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(24, 4, 24, 8)
@@ -807,48 +866,150 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalEditTrade(t: JournalTrade) {
-        journalAsk("Edit • Symbol", "e.g. XAUUSD", t.symbol, false) {
+        journalEditAsk("Edit • Symbol", "e.g. XAUUSD", t.symbol) {
             t.symbol = it.uppercase(Locale.getDefault())
-            journalAsk("Edit • Entry Price", "Entry price", t.entry, false) { p ->
-                if (p.toDoubleOrNull() == null) {
-                    Toast.makeText(this, "Invalid price.", Toast.LENGTH_SHORT).show()
-                } else {
-                    t.entry = p
-                    journalAsk("Edit • Stop Loss", "Optional", t.sl, true) { sl ->
-                        t.sl = sl
-                        val suggested = journalSuggestedTP(t)
-                        if (suggested != null) {
-                            val input = EditText(this).apply {
-                                setText(t.tp.ifBlank { String.format(Locale.US, "%.5f", suggested) })
-                                textSize = 18f
-                            }
-                            AlertDialog.Builder(this).setTitle("Edit • Take Profit")
-                                .setMessage("Suggested RR 2:1 TP: " + String.format(Locale.US, "%.5f", suggested))
-                                .setView(input).setNegativeButton("Cancel", null)
-                                .setNeutralButton("Skip") { _, _ -> t.tp = ""; journalFinishEdit(t) }
-                                .setPositiveButton("Save TP") { _, _ -> t.tp = input.text.toString().trim(); journalFinishEdit(t) }
-                                .show()
-                        } else {
-                            journalAsk("Edit • Take Profit", "Optional", t.tp, true) { tp -> t.tp = tp; journalFinishEdit(t) }
-                        }
-                    }
-                }
+            journalEditDirectionStep(t)
+        }
+    }
+
+    private fun journalEditDirectionStep(t: JournalTrade) {
+        val items = arrayOf("BUY", "SELL")
+        val selected = if (t.direction == "SELL") 1 else 0
+        AlertDialog.Builder(this).setTitle("Edit • Direction")
+            .setSingleChoiceItems(items, selected, null)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { dialog, _ ->
+                val listView = (dialog as AlertDialog).listView
+                val checked = listView.checkedItemPosition
+                if (checked >= 0) t.direction = items[checked]
+                journalEditEntryStep(t)
+            }.show()
+    }
+
+    private fun journalEditEntryStep(t: JournalTrade) {
+        journalEditAsk("Edit • Entry Price", "Entry price", t.entry) { p ->
+            if (p.toDoubleOrNull() == null) {
+                Toast.makeText(this, "Invalid price.", Toast.LENGTH_SHORT).show()
+                journalEditEntryStep(t)
+            } else {
+                t.entry = p
+                journalEditSLStep(t)
             }
         }
     }
 
-    private fun journalFinishEdit(t: JournalTrade) {
-        journalAsk("Edit • Position Size", "Optional", t.volume, true) { volume ->
-            t.volume = volume
-            journalAsk("Edit • Notes", "Optional", t.notes, true) { notes ->
-                t.notes = notes
-                val list = journalTrades()
-                val i = list.indexOfFirst { it.id == t.id }
-                if (i >= 0) list[i] = t
-                saveJournalTrades(list)
-                showJournal()
+    private fun journalEditSLStep(t: JournalTrade) {
+        journalEditAsk("Edit • Stop Loss", "Optional", t.sl) { sl ->
+            t.sl = sl
+            journalEditTPStep(t)
+        }
+    }
+
+    private fun journalEditTPStep(t: JournalTrade) {
+        val suggested = journalSuggestedTP(t)
+        if (suggested == null) {
+            journalEditAsk("Edit • Take Profit", "Optional", t.tp) { tp ->
+                t.tp = tp
+                journalEditVolumeStep(t)
+            }
+            return
+        }
+        val input = EditText(this).apply {
+            setText(t.tp.ifBlank { String.format(Locale.US, "%.5f", suggested) })
+            selectAll()
+            textSize = 18f
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Edit • Take Profit")
+            .setMessage("Suggested RR 2:1 TP: " + String.format(Locale.US, "%.5f", suggested))
+            .setView(input)
+            .setNegativeButton("Cancel", null)
+            .setNeutralButton("Keep") { _, _ -> journalEditVolumeStep(t) }
+            .setPositiveButton("Save TP") { _, _ ->
+                t.tp = input.text.toString().trim()
+                journalEditVolumeStep(t)
+            }.show()
+    }
+
+    private fun journalEditVolumeStep(t: JournalTrade) {
+        journalEditAsk("Edit • Position Size", "Optional — e.g. 0.10 lot", t.volume) {
+            t.volume = it
+            journalEditNotesStep(t)
+        }
+    }
+
+    private fun journalEditNotesStep(t: JournalTrade) {
+        journalEditAsk("Edit • Notes", "Optional setup / reason / review", t.notes) {
+            t.notes = it
+            if (t.exitTime != null) journalEditExitPriceStep(t) else journalSaveEditedTrade(t)
+        }
+    }
+
+    private fun journalEditExitPriceStep(t: JournalTrade) {
+        journalEditAsk("Edit • Exit Price", "Exit price", t.exit) { exit ->
+            if (exit.toDoubleOrNull() == null && exit.isNotBlank()) {
+                Toast.makeText(this, "Invalid exit price.", Toast.LENGTH_SHORT).show()
+                journalEditExitPriceStep(t)
+            } else {
+                t.exit = exit
+                journalEditExitTimeStep(t)
             }
         }
+    }
+
+    private fun journalEditExitTimeStep(t: JournalTrade) {
+        val current = t.exitTime?.let { journalDate(it) } ?: ""
+        journalEditAsk("Edit • Exit Time", "yyyy-MM-dd HH:mm", current) { value ->
+            val parsed = try {
+                if (value.isBlank()) null
+                else java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(value)?.time
+            } catch (_: Exception) { null }
+            if (value.isNotBlank() && parsed == null) {
+                Toast.makeText(this, "Use format yyyy-MM-dd HH:mm", Toast.LENGTH_SHORT).show()
+                journalEditExitTimeStep(t)
+            } else {
+                t.exitTime = parsed
+                journalEditPnlStep(t)
+            }
+        }
+    }
+
+    private fun journalEditPnlStep(t: JournalTrade) {
+        val current = t.pnl
+        journalEditAsk("Edit • Profit / Loss", "e.g. 125.50", current) { pnl ->
+            t.pnl = pnl
+            journalEditExitReasonStep(t)
+        }
+    }
+
+    private fun journalEditExitReasonStep(t: JournalTrade) {
+        val reasons = arrayOf("Take Profit", "Stop Loss", "Manual Close", "Signal Reversal", "Session End", "Other")
+        val selected = reasons.indexOf(t.exitReason)
+        AlertDialog.Builder(this).setTitle("Edit • Exit Reason")
+            .setSingleChoiceItems(reasons, selected.coerceAtLeast(-1), null)
+            .setNegativeButton("Cancel", null)
+            .setNeutralButton("Keep") { _, _ -> journalEditClosingNotesStep(t) }
+            .setPositiveButton("Save") { dialog, _ ->
+                val listView = (dialog as AlertDialog).listView
+                val checked = listView.checkedItemPosition
+                if (checked >= 0) t.exitReason = reasons[checked]
+                journalEditClosingNotesStep(t)
+            }.show()
+    }
+
+    private fun journalEditClosingNotesStep(t: JournalTrade) {
+        journalEditAsk("Edit • Closing Notes", "Closing notes", t.notes) { notes ->
+            t.notes = notes
+            journalSaveEditedTrade(t)
+        }
+    }
+
+    private fun journalSaveEditedTrade(t: JournalTrade) {
+        val list = journalTrades()
+        val i = list.indexOfFirst { it.id == t.id }
+        if (i >= 0) list[i] = t
+        saveJournalTrades(list)
+        showJournal()
     }
 
     private fun journalDeleteTrade(t: JournalTrade) {
