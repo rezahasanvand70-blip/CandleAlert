@@ -572,6 +572,7 @@ class MainActivity : AppCompatActivity() {
             val ok = GoogleSheetsApi.syncJournal(token, id, trades.map { t ->
                 listOf(t.id.toString(), if (t.exitTime == null) "OPEN" else "CLOSED", t.symbol, t.direction,
                     t.entryTime.toString(), t.entry, t.sl, t.tp, t.volume, t.exitTime?.toString() ?: "",
+                    if (t.exitTime != null) journalDuration(t.entryTime, t.exitTime!!) else "",
                     t.exit, t.pnl, t.exitReason, t.notes)
             }, initial, deposits, withdrawals)
             runOnUiThread {
