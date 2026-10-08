@@ -379,12 +379,12 @@ class MainActivity : AppCompatActivity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(4, 3, 4, 3)
+                setPadding(8, 6, 8, 6)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(if (selected) Color.rgb(235, 243, 255) else cardColor)
                     cornerRadius = 16f
                 }
-                minimumHeight = 62
+                minimumHeight = 78
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
@@ -398,11 +398,14 @@ class MainActivity : AppCompatActivity() {
                 setColorFilter(if (selected) accent else muted)
                 setPadding(4, 3, 4, 1)
             }
-            item.addView(icon, LinearLayout.LayoutParams(40, 32))
-            item.addView(text(name, 10f, if (selected) accent else muted).apply { gravity = Gravity.CENTER })
-            nav.addView(item, LinearLayout.LayoutParams(0, 64).apply { weight = 1f; setMargins(4, 0, 4, 0) })
+            item.addView(icon, LinearLayout.LayoutParams(46, 38))
+            item.addView(text(name, 12f, if (selected) accent else muted).apply {
+                gravity = Gravity.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+            })
+            nav.addView(item, LinearLayout.LayoutParams(0, 78).apply { weight = 1f; setMargins(5, 0, 5, 0) })
         }
-        root.addView(nav, LinearLayout.LayoutParams(-1, 72))
+        root.addView(nav, LinearLayout.LayoutParams(-1, 88))
     }
 
     private fun showJournal() {
@@ -425,13 +428,9 @@ class MainActivity : AppCompatActivity() {
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, 10) }
 
+        // Daily trading controls live on Home. Settings contains only behavior/system options.
         val options = listOf(
-            "Symbol" to "Instrument used for the alert",
-            "Timeframe" to "Candle duration",
             "Open Market" to "Broker candle alignment start",
-            "Alert Timing" to "Before, at, or after candle close",
-            "Market & Sessions" to "Market type and Forex sessions",
-            "Sleep Hours" to "Quiet period for notifications",
             "Theme" to "Light, dark, or system default",
             "Open App on Notification" to "Open your selected trading app",
             "Exact Alarm Permission" to "Allow precise background alerts"
@@ -448,12 +447,7 @@ class MainActivity : AppCompatActivity() {
             c.addView(row)
             c.setOnClickListener {
                 when (pair.first) {
-                    "Symbol" -> chooseSymbol()
-                    "Timeframe" -> chooseTf()
                     "Open Market" -> chooseOpenMarket()
-                    "Alert Timing" -> chooseTiming()
-                    "Market & Sessions" -> chooseMarket()
-                    "Sleep Hours" -> editQuiet()
                     "Theme" -> showThemeSettings()
                     "Open App on Notification" -> chooseNotificationApp()
                     "Exact Alarm Permission" -> if (android.os.Build.VERSION.SDK_INT >= 31) {
