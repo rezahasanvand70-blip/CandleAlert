@@ -236,7 +236,7 @@ class AnalogClockView(
             val arcLength = arcSpan * Math.PI.toFloat() / 180f * rr
             val textWidth = labelPaint.measureText(session.name)
             val hOffset = ((arcLength - textWidth) / 2f).coerceAtLeast(0f)
-            canvas.drawTextOnPath(path, session.name, hOffset, 0f, labelPaint)
+            canvas.drawTextOnPath(session.name, path, hOffset, 0f, labelPaint)
         }
 
         postInvalidateDelayed(120)
