@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.util.Locale
+import com.google.android.gms.auth.api.identity.AuthorizationResult
 
 class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
@@ -83,6 +84,21 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putString("symbol", "XAUUSD").putInt("tf", 60).putInt("mode", 1).putInt("offset", 0).apply()
             }
             prefs.edit().putBoolean("defaults_migrated_v3", true).apply()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == GoogleSheetsApi.REQUEST_CODE) {
+            val result = GoogleSheetsApi.handleAuthorizationResult(this, data)
+            if (result != null && resultCode == RESULT_OK) {
+                prefs.edit().putBoolean("google_sheets_connected", true).apply()
+                val id = prefs.getString("google_sheets_id", "") ?: ""
+                if (id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
+            } else {
+                Toast.makeText(this, "Google Sheets authorization was cancelled.", Toast.LENGTH_SHORT).show()
+                showGoogleSheetsSettings()
+            }
         }
     }
 
@@ -479,6 +495,144 @@ class MainActivity : AppCompatActivity() {
     private fun journalDate(ms: Long): String =
         java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date(ms))
 
+    private fun editAccountAmount(title: String, key: String, additive: Boolean) {
+        val current = prefs.getString(key, "")?.toDoubleOrNull() ?: 0.0
+        val e = EditText(this).apply {
+            setText(if (current == 0.0) "" else String.format(Locale.US, "%.2f", current))
+            hint = "Amount"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            textSize = 18f
+        }
+        AlertDialog.Builder(this).setTitle(title).setView(e)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { _, _ ->
+                val value = e.text.toString().trim().toDoubleOrNull()
+                if (value == null || value < 0.0) {
+                    Toast.makeText(this, "Enter a valid non-negative amount.", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val stored = if (additive) current + value else value
+                prefs.edit().putString(key, stored.toString()).apply()
+                googleSheetsSyncIfConnected()
+                showJournal()
+            }.show()
+    }
+
+    private fun resetAccountBalance() {
+        AlertDialog.Builder(this).setTitle("Reset account balance?")
+            .setMessage("This resets Initial Balance, Deposits and Withdrawals to zero. Journal trades are kept.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Reset") { _, _ ->
+                prefs.edit().putString("account_initial", "0").putString("account_deposits", "0").putString("account_withdrawals", "0").apply()
+                googleSheetsSyncIfConnected()
+                showJournal()
+            }.show()
+    }
+
+    private fun googleSheetsSyncIfConnected() {
+        val id = prefs.getString("google_sheets_id", "") ?: return
+        if (id.isBlank()) return
+        GoogleSheetsApi.requestAuthorization(this, false) { result -> googleSheetsSyncAfterAuth(result) }
+    }
+
+    private fun googleSheetsSyncAfterAuth(result: AuthorizationResult) {
+        val token = result.accessToken ?: return
+        val id = prefs.getString("google_sheets_id", "") ?: return
+        if (id.isBlank()) return
+        val trades = journalTrades()
+        val initial = prefs.getString("account_initial", "0") ?: "0"
+        val deposits = prefs.getString("account_deposits", "0") ?: "0"
+        val withdrawals = prefs.getString("account_withdrawals", "0") ?: "0"
+        Thread {
+            val ok = GoogleSheetsApi.syncJournal(token, id, trades.map { t ->
+                listOf(t.id.toString(), if (t.exitTime == null) "OPEN" else "CLOSED", t.symbol, t.direction,
+                    t.entryTime.toString(), t.entry, t.sl, t.tp, t.volume, t.exitTime?.toString() ?: "",
+                    t.exit, t.pnl, t.exitReason, t.notes)
+            }, initial, deposits, withdrawals)
+            runOnUiThread {
+                if (ok) prefs.edit().putLong("google_sheets_last_sync", System.currentTimeMillis()).apply()
+                else Toast.makeText(this, "Google Sheets sync failed. Check connection and permissions.", Toast.LENGTH_SHORT).show()
+            }
+        }.start()
+    }
+
+    private fun googleSheetsCreateAfterAuth(result: AuthorizationResult) {
+        val token = result.accessToken ?: return
+        Thread {
+            val created = GoogleSheetsApi.createJournalSheet(token)
+            runOnUiThread {
+                if (created != null) {
+                    prefs.edit().putString("google_sheets_id", created.id).putString("google_sheets_url", created.url)
+                        .putBoolean("google_sheets_connected", true).apply()
+                    googleSheetsSyncAfterAuth(result)
+                    showGoogleSheetsSettings()
+                } else {
+                    Toast.makeText(this, "Could not create the Google Sheet.", Toast.LENGTH_LONG).show()
+                    showGoogleSheetsSettings()
+                }
+            }
+        }.start()
+    }
+
+    private fun showGoogleSheetsSettings() {
+        val root = base()
+        root.addView(text("Google Sheets", 28f))
+        root.addView(text("Keep your Journal in your personal Google Sheet so the data survives app replacement or deletion.", 14f, muted).apply {
+            setPadding(0, 4, 0, 14)
+        })
+        val connected = prefs.getBoolean("google_sheets_connected", false)
+        val id = prefs.getString("google_sheets_id", "") ?: ""
+        val url = prefs.getString("google_sheets_url", "") ?: ""
+        val status = panel().apply { setPadding(18, 16, 18, 16) }
+        status.addView(text(if (connected) "●  Connected" else "○  Not connected", 18f, if (connected) green else muted).apply { typeface = Typeface.DEFAULT_BOLD })
+        status.addView(text(if (id.isBlank()) "No Journal Sheet selected." else "Candle Alert Journal is linked.", 13f, muted).apply { setPadding(0, 5, 0, 0) })
+        root.addView(status, LinearLayout.LayoutParams(-1, 94).apply { setMargins(0, 0, 0, 12) })
+        root.addView(smallButton(if (connected) "Google Account  •  Connected" else "Connect Google Account", true).apply {
+            setOnClickListener { googleSheetsConnect() }
+        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        root.addView(smallButton("Create New Personal Journal Sheet").apply {
+            setOnClickListener { googleSheetsConnect(createIfMissing = true) }
+        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        root.addView(smallButton("Use Existing Sheet ID / URL").apply {
+            setOnClickListener { editGoogleSheetId() }
+        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        root.addView(smallButton("Sync Now").apply {
+            setOnClickListener { googleSheetsSyncIfConnected() }
+        }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        if (url.isNotBlank()) {
+            root.addView(smallButton("Open Google Sheet", true).apply {
+                setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+            }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 0, 0, 8) })
+        }
+        root.addView(text("The sheet contains Trade ID, status, entry/exit data, P/L, reasons, notes and account balance.", 12f, muted).apply { setPadding(2, 8, 2, 8) })
+        root.addView(Space(this), LinearLayout.LayoutParams(1, 0).apply { weight = 1f })
+        addBottom(root, "settings")
+        setContentView(root)
+    }
+
+    private fun googleSheetsConnect(createIfMissing: Boolean = false) {
+        GoogleSheetsApi.requestAuthorization(this, true) { result ->
+            prefs.edit().putBoolean("google_sheets_connected", true).apply()
+            val id = prefs.getString("google_sheets_id", "") ?: ""
+            if (createIfMissing || id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
+        }
+    }
+
+    private fun editGoogleSheetId() {
+        val e = EditText(this).apply { setText(prefs.getString("google_sheets_id", "")); hint = "Paste Spreadsheet ID or full URL"; textSize = 16f }
+        AlertDialog.Builder(this).setTitle("Google Sheet ID / URL").setView(e)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save & Sync") { _, _ ->
+                var value = e.text.toString().trim()
+                if (value.contains("/d/")) value = value.substringAfter("/d/").substringBefore("/")
+                if (value.isBlank()) Toast.makeText(this, "Enter a valid Spreadsheet ID or URL.", Toast.LENGTH_SHORT).show()
+                else {
+                    prefs.edit().putString("google_sheets_id", value).putBoolean("google_sheets_connected", true).apply()
+                    googleSheetsConnect()
+                }
+            }.show()
+    }
+
     private fun journalRR(t: JournalTrade): Double? {
         val e = t.entry.toDoubleOrNull() ?: return null
         val s = t.sl.toDoubleOrNull() ?: return null
@@ -531,7 +685,8 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { journalAddTrade() }
         }, LinearLayout.LayoutParams(-1, 54).apply { setMargins(0, 4, 0, 14) })
 
-        // Compact performance summary belongs to the Journal, not Home.
+        // Large performance summary: values are intentionally prominent and
+        // profit/loss state is reinforced with explicit green/red typography.
         val closedWithPnl = closed.mapNotNull { it.pnl.toDoubleOrNull() }
         val wins = closedWithPnl.count { it > 0.0 }
         val losses = closedWithPnl.count { it < 0.0 }
@@ -543,37 +698,97 @@ class MainActivity : AppCompatActivity() {
         val plannedRRs = trades.mapNotNull { journalRR(it) }
         val avgPlannedRR = if (plannedRRs.isNotEmpty()) plannedRRs.average() else null
 
-        val summary = panel().apply { setPadding(16, 14, 16, 14) }
-        summary.addView(text("PERFORMANCE SUMMARY", 11f, muted).apply {
+        val summary = panel().apply { setPadding(18, 18, 18, 18) }
+        summary.addView(text("PERFORMANCE SUMMARY", 13f, muted).apply {
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 10)
+            setPadding(0, 0, 0, 14)
         })
-        fun summaryRow(leftLabel: String, leftValue: String, rightLabel: String, rightValue: String) {
+        fun summaryRow(leftLabel: String, leftValue: String, leftColor: Int = textColor,
+                       rightLabel: String, rightValue: String, rightColor: Int = textColor) {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, 5, 0, 5)
             }
-            fun cell(label: String, value: String): LinearLayout {
+            fun cell(label: String, value: String, valueColor: Int): LinearLayout {
                 return LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.VERTICAL
-                    addView(text(label, 11f, muted))
-                    addView(text(value, 15f).apply {
+                    setPadding(0, 2, 10, 2)
+                    addView(text(label, 12f, muted))
+                    addView(text(value, 20f, valueColor).apply {
                         typeface = Typeface.DEFAULT_BOLD
-                        setPadding(0, 3, 0, 0)
+                        setPadding(0, 5, 0, 0)
+                        maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
                     })
                 }
             }
-            row.addView(cell(leftLabel, leftValue), LinearLayout.LayoutParams(0, 52).apply { weight = 1f })
-            row.addView(cell(rightLabel, rightValue), LinearLayout.LayoutParams(0, 52).apply { weight = 1f })
+            row.addView(cell(leftLabel, leftValue, leftColor), LinearLayout.LayoutParams(0, 70).apply { weight = 1f })
+            row.addView(cell(rightLabel, rightValue, rightColor), LinearLayout.LayoutParams(0, 70).apply { weight = 1f })
             summary.addView(row)
         }
-        summaryRow("Total Trades", trades.size.toString(), "Open", open.size.toString())
-        summaryRow("Closed", closed.size.toString(), "Win Rate", winRate?.let { String.format(Locale.US, "%.1f%%", it) } ?: "—")
-        summaryRow("Net P/L", if (closedWithPnl.isNotEmpty()) String.format(Locale.US, "%.2f", netPnl) else "—",
-            "Profit Factor", profitFactor?.let { String.format(Locale.US, "%.2f", it) } ?: if (grossProfit > 0.0 && grossLoss == 0.0) "∞" else "—")
-        summaryRow("Wins / Losses", "$wins / $losses", "Avg Planned R:R", avgPlannedRR?.let { "1 : " + String.format(Locale.US, "%.2f", it) } ?: "—")
-        content.addView(summary, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 14) })
+        val netColor = when {
+            closedWithPnl.isEmpty() -> muted
+            netPnl > 0.0 -> green
+            netPnl < 0.0 -> red
+            else -> muted
+        }
+        val pfColor = when {
+            profitFactor == null && grossProfit <= 0.0 -> muted
+            (profitFactor ?: 0.0) >= 1.0 || (grossProfit > 0.0 && grossLoss == 0.0) -> green
+            else -> red
+        }
+        val winColor = when {
+            winRate == null -> muted
+            winRate >= 50.0 -> green
+            else -> red
+        }
+        summaryRow("Total Trades", trades.size.toString(), textColor, "Open", open.size.toString(), accent)
+        summaryRow("Closed", closed.size.toString(), textColor, "Win Rate", winRate?.let { String.format(Locale.US, "%.1f%%", it) } ?: "—", winColor)
+        summaryRow("Net P/L", if (closedWithPnl.isNotEmpty()) String.format(Locale.US, "%.2f", netPnl) else "—", netColor,
+            "Profit Factor", profitFactor?.let { String.format(Locale.US, "%.2f", it) } ?: if (grossProfit > 0.0 && grossLoss == 0.0) "∞" else "—", pfColor)
+        summaryRow("Wins", wins.toString(), if (wins > 0) green else muted, "Losses", losses.toString(), if (losses > 0) red else muted)
+        summaryRow("Avg Planned R:R", avgPlannedRR?.let { "1 : " + String.format(Locale.US, "%.2f", it) } ?: "—", accent,
+            "Result", when {
+                closedWithPnl.isEmpty() -> "No closed P/L"
+                netPnl > 0.0 -> "PROFIT"
+                netPnl < 0.0 -> "LOSS"
+                else -> "BREAK-EVEN"
+            }, netColor)
+        content.addView(summary, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 12) })
+
+        val initialBalance = prefs.getString("account_initial", "")?.toDoubleOrNull() ?: 0.0
+        val deposits = prefs.getString("account_deposits", "")?.toDoubleOrNull() ?: 0.0
+        val withdrawals = prefs.getString("account_withdrawals", "")?.toDoubleOrNull() ?: 0.0
+        val currentBalance = initialBalance + deposits - withdrawals + netPnl
+        val balanceCard = panel().apply { setPadding(18, 18, 18, 18) }
+        balanceCard.addView(text("ACCOUNT BALANCE", 13f, muted).apply { typeface = Typeface.DEFAULT_BOLD })
+        balanceCard.addView(text(String.format(Locale.US, "%.2f", currentBalance), 28f,
+            when { currentBalance > 0.0 -> green; currentBalance < 0.0 -> red; else -> textColor }).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, 7, 0, 2)
+        })
+        balanceCard.addView(text(
+            "Initial " + String.format(Locale.US, "%.2f", initialBalance) +
+                "  •  Deposits " + String.format(Locale.US, "%.2f", deposits) +
+                "  •  Withdrawals " + String.format(Locale.US, "%.2f", withdrawals),
+            12f, muted
+        ).apply { setPadding(0, 0, 0, 14) })
+        val balanceActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        fun balanceAction(label: String, click: () -> Unit): TextView = smallButton(label).apply {
+            textSize = 12f
+            setOnClickListener { click() }
+        }
+        balanceActions.addView(balanceAction("Initial") { editAccountAmount("Initial Balance", "account_initial", false) },
+            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+        balanceActions.addView(balanceAction("Deposit") { editAccountAmount("Deposit", "account_deposits", true) },
+            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+        balanceActions.addView(balanceAction("Withdraw") { editAccountAmount("Withdrawal", "account_withdrawals", true) },
+            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+        balanceActions.addView(balanceAction("Reset") { resetAccountBalance() },
+            LinearLayout.LayoutParams(0, 46).apply { weight = 1f; setMargins(2, 0, 2, 0) })
+        balanceCard.addView(balanceActions)
+        content.addView(balanceCard, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 14) })
 
         if (open.isNotEmpty()) {
             content.addView(text("OPEN TRADES", 11f, muted).apply {
@@ -861,6 +1076,7 @@ class MainActivity : AppCompatActivity() {
                 val i = list.indexOfFirst { it.id == t.id }
                 if (i >= 0) list[i] = t
                 saveJournalTrades(list)
+                googleSheetsSyncIfConnected()
                 showJournal()
             }.show()
     }
@@ -1009,6 +1225,7 @@ class MainActivity : AppCompatActivity() {
         val i = list.indexOfFirst { it.id == t.id }
         if (i >= 0) list[i] = t
         saveJournalTrades(list)
+        googleSheetsSyncIfConnected()
         showJournal()
     }
 
@@ -1018,6 +1235,7 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 saveJournalTrades(journalTrades().filterNot { it.id == t.id })
+                googleSheetsSyncIfConnected()
                 showJournal()
             }.show()
     }
@@ -1034,6 +1252,7 @@ class MainActivity : AppCompatActivity() {
         val options = listOf(
             "Open Market" to "Broker candle alignment start",
             "Theme" to "Light, dark, or system default",
+            "Google Sheets Journal" to "Store Journal data in your personal Google Sheet",
             "Open App on Notification" to "Open your selected trading app",
             "Exact Alarm Permission" to "Allow precise background alerts"
         )
@@ -1051,6 +1270,7 @@ class MainActivity : AppCompatActivity() {
                 when (pair.first) {
                     "Open Market" -> chooseOpenMarket()
                     "Theme" -> showThemeSettings()
+                    "Google Sheets Journal" -> showGoogleSheetsSettings()
                     "Open App on Notification" -> chooseNotificationApp()
                     "Exact Alarm Permission" -> if (android.os.Build.VERSION.SDK_INT >= 31) {
                         startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
