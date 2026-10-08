@@ -274,14 +274,14 @@ class MainActivity : AppCompatActivity() {
             val box = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(22, 16, 20, 16)
+                setPadding(24, 20, 22, 20)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(cardColor)
                     cornerRadius = 18f
                     setStroke(1, line)
                 }
                 elevation = 1f
-                minimumHeight = 104
+                minimumHeight = 118
                 isClickable = true
                 setOnClickListener { click() }
             }
@@ -289,10 +289,10 @@ class MainActivity : AppCompatActivity() {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            texts.addView(text(labelText, 12f, muted))
-            texts.addView(text(value, 21f).apply {
+            texts.addView(text(labelText, 13f, muted))
+            texts.addView(text(value, 23f).apply {
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 6, 0, 0)
+                setPadding(0, 7, 0, 0)
             })
             box.addView(texts, LinearLayout.LayoutParams(0, 88).apply { weight = 1f })
             box.addView(text("›", 30f, muted).apply { gravity = Gravity.CENTER })
@@ -301,13 +301,13 @@ class MainActivity : AppCompatActivity() {
 
         val sleepSummary = prefs.getString("quiet", "00:00-07:30") ?: "00:00-07:30"
         content.addView(quickControl("TIMEFRAME", tfLabel) { chooseTf() },
-            LinearLayout.LayoutParams(-1, 104).apply { setMargins(0, 0, 0, 12) })
+            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 12) })
         content.addView(quickControl("MARKET", market) { chooseMarket() },
-            LinearLayout.LayoutParams(-1, 88).apply { setMargins(0, 0, 0, 10) })
+            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 12) })
         content.addView(quickControl("ALERT", timingSummary()) { chooseTiming() },
             LinearLayout.LayoutParams(-1, 88).apply { setMargins(0, 0, 0, 10) })
         content.addView(quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
-            LinearLayout.LayoutParams(-1, 104).apply { setMargins(0, 0, 0, 20) })
+            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 20) })
 
         val navHost = LinearLayout(this).apply { setPadding(18, 0, 18, 8) }
         addBottom(navHost, "home")
