@@ -504,6 +504,19 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString("journal_trades_v2", a.toString()).apply()
     }
 
+    private fun journalDuration(start: Long, end: Long): String {
+        val total = ((end - start).coerceAtLeast(0L)) / 1000L
+        val d = total / 86400L
+        val h = (total % 86400L) / 3600L
+        val m = (total % 3600L) / 60L
+        val sec = total % 60L
+        return when {
+            d > 0 -> String.format(Locale.getDefault(), "%dd %02dh %02dm", d, h, m)
+            h > 0 -> String.format(Locale.getDefault(), "%dh %02dm %02ds", h, m, sec)
+            else -> String.format(Locale.getDefault(), "%dm %02ds", m, sec)
+        }
+    }
+
     private fun journalDate(ms: Long): String =
         java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date(ms))
 
@@ -718,6 +731,8 @@ class MainActivity : AppCompatActivity() {
         val profitFactor = if (grossLoss > 0.0) grossProfit / grossLoss else null
         val plannedRRs = trades.mapNotNull { journalRR(it) }
         val avgPlannedRR = if (plannedRRs.isNotEmpty()) plannedRRs.average() else null
+        val closedDurations = closed.mapNotNull { it.exitTime?.let { end -> (end - it.entryTime).coerceAtLeast(0L) } }
+        val avgTradeDuration = if (closedDurations.isNotEmpty()) closedDurations.average().toLong() else null
 
         val summary = panel().apply { setPadding(dp(18), dp(18), dp(18), dp(18)) }
         summary.addView(text("PERFORMANCE SUMMARY", 13f, muted).apply {
@@ -770,7 +785,8 @@ class MainActivity : AppCompatActivity() {
             "Profit Factor", profitFactor?.let { String.format(Locale.US, "%.2f", it) } ?: if (grossProfit > 0.0 && grossLoss == 0.0) "∞" else "—", pfColor)
         summaryRow("Wins", wins.toString(), if (wins > 0) green else muted, "Losses", losses.toString(), if (losses > 0) red else muted)
         summaryRow("Avg Planned R:R", avgPlannedRR?.let { "1 : " + String.format(Locale.US, "%.2f", it) } ?: "—", accent,
-            "Result", when {
+            "Avg Trade Duration", avgTradeDuration?.let { journalDuration(0L, it) } ?: "—", accent)
+        summaryRow("Result", when {
                 closedWithPnl.isEmpty() -> "No closed P/L"
                 netPnl > 0.0 -> "PROFIT"
                 netPnl < 0.0 -> "LOSS"
@@ -855,6 +871,11 @@ class MainActivity : AppCompatActivity() {
         val title = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         title.addView(text(t.symbol + "  •  " + t.direction, 18f).apply { typeface = Typeface.DEFAULT_BOLD })
         title.addView(text("Entry " + journalDate(t.entryTime), 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
+        if (t.exitTime != null) {
+            title.addView(text("Duration " + journalDuration(t.entryTime, t.exitTime!!), 11f, accent).apply {
+                setPadding(dp(0), dp(3), dp(0), dp(0))
+            })
+        }
         row.addView(title, lp(0, 56).apply { weight = 1f })
         row.addView(text(if (isOpen) "OPEN" else "CLOSED", 11f, if (isOpen) accent else muted).apply {
             typeface = Typeface.DEFAULT_BOLD
@@ -890,6 +911,36 @@ class MainActivity : AppCompatActivity() {
         parent.addView(c, lp(-1, -2).apply { setMargins(dp(0), dp(4), dp(0), dp(6)) })
     }
 
+    private fun journalPickDateTime(title: String, initial: Long, onPicked: (Long) -> Unit) {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = initial }
+        android.app.DatePickerDialog(
+            this,
+            { _, year, month, day ->
+                android.app.TimePickerDialog(
+                    this,
+                    { _, hour, minute ->
+                        val chosen = java.util.Calendar.getInstance().apply {
+                            set(java.util.Calendar.YEAR, year)
+                            set(java.util.Calendar.MONTH, month)
+                            set(java.util.Calendar.DAY_OF_MONTH, day)
+                            set(java.util.Calendar.HOUR_OF_DAY, hour)
+                            set(java.util.Calendar.MINUTE, minute)
+                            set(java.util.Calendar.SECOND, 0)
+                            set(java.util.Calendar.MILLISECOND, 0)
+                        }
+                        onPicked(chosen.timeInMillis)
+                    },
+                    cal.get(java.util.Calendar.HOUR_OF_DAY),
+                    cal.get(java.util.Calendar.MINUTE),
+                    true
+                ).show()
+            },
+            cal.get(java.util.Calendar.YEAR),
+            cal.get(java.util.Calendar.MONTH),
+            cal.get(java.util.Calendar.DAY_OF_MONTH)
+        ).apply { setTitle(title) }.show()
+    }
+
     private fun journalAsk(title: String, hint: String, initial: String = "", optional: Boolean = true, onDone: (String) -> Unit) {
         val e = EditText(this).apply {
             setText(initial)
@@ -923,11 +974,26 @@ class MainActivity : AppCompatActivity() {
 
     private fun journalEntryTimeStep(t: JournalTrade) {
         val now = System.currentTimeMillis()
-        val e = EditText(this).apply { setText(journalDate(t.entryTime)); textSize = 17f }
+        var selected = now
+        val button = smallButton("Entry time: " + journalDate(selected), true).apply {
+            setOnClickListener {
+                journalPickDateTime("Entry Time", selected) {
+                    selected = it
+                    text = "Entry time: " + journalDate(selected)
+                }
+            }
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(4), dp(18), dp(8))
+            addView(text("Default is the moment you register the trade. Change it if you are entering a trade later.", 13f, muted).apply {
+                setPadding(dp(0), dp(0), dp(0), dp(12))
+            })
+            addView(button, lp(-1, 50))
+        }
         AlertDialog.Builder(this).setTitle("3 / 8  •  Entry Time")
-            .setMessage("Use the time picker if you want to change it. The current time is the default.")
-            .setView(e).setNegativeButton("Cancel", null)
-            .setPositiveButton("Next") { _, _ -> t.entryTime = now; journalEntryStep(t) }.show()
+            .setView(box).setNegativeButton("Cancel", null)
+            .setPositiveButton("Next") { _, _ -> t.entryTime = selected; journalEntryStep(t) }.show()
     }
 
     private fun journalEntryStep(t: JournalTrade) {
@@ -1047,8 +1113,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalExitTimeStep(t: JournalTrade) {
-        t.exitTime = System.currentTimeMillis()
-        journalPnlStep(t)
+        var selected = System.currentTimeMillis()
+        val button = smallButton("Exit time: " + journalDate(selected), true).apply {
+            setOnClickListener {
+                journalPickDateTime("Exit Time", selected) {
+                    selected = it
+                    text = "Exit time: " + journalDate(selected)
+                }
+            }
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(4), dp(18), dp(8))
+            addView(text("Default is the moment you register the close. Change it if you are entering the trade closure later.", 13f, muted).apply {
+                setPadding(dp(0), dp(0), dp(0), dp(12))
+            })
+            addView(button, lp(-1, 50))
+        }
+        AlertDialog.Builder(this).setTitle("2 / 5  •  Exit Time")
+            .setView(box).setNegativeButton("Cancel", null)
+            .setPositiveButton("Next") { _, _ -> t.exitTime = selected; journalPnlStep(t) }.show()
     }
 
     private fun journalPnlStep(t: JournalTrade) {
@@ -1119,8 +1203,15 @@ class MainActivity : AppCompatActivity() {
                 val listView = (dialog as AlertDialog).listView
                 val checked = listView.checkedItemPosition
                 if (checked >= 0) t.direction = items[checked]
-                journalEditEntryStep(t)
+                journalEditEntryTimeStep(t)
             }.show()
+    }
+
+    private fun journalEditEntryTimeStep(t: JournalTrade) {
+        journalPickDateTime("Edit • Entry Time", t.entryTime) {
+            t.entryTime = it
+            journalEditEntryStep(t)
+        }
     }
 
     private fun journalEditEntryStep(t: JournalTrade) {
