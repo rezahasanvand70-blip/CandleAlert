@@ -366,10 +366,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun timingSummary(): String {
+        if (prefs.contains("alert_offset_minutes")) {
+            val value = prefs.getInt("alert_offset_minutes", 0)
+            return when {
+                value > 0 -> "+" + value + " min • before close"
+                value < 0 -> value.toString() + " min • after close"
+                else -> "0 min • at close"
+            }
+        }
         val mode = prefs.getInt("mode", 1)
         val off = prefs.getInt("offset", 0)
-        if (mode == 1 || off == 0) return "At close"
-        return (if (mode == 0) "Before " else "After ") + formatOffset(off)
+        if (mode == 1 || off == 0) return "0 min • at close"
+        return (if (mode == 0) "+" else "-") + formatOffset(off)
     }
 
     private fun formatOffset(s: Int): String = when (s) {
