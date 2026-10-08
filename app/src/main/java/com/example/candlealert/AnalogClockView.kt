@@ -3,6 +3,7 @@ package com.example.candlealert
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.MotionEvent
@@ -125,7 +126,8 @@ class AnalogClockView(
         val bandWidth = radius * 0.090f
 
         sessions.forEachIndexed { index, session ->
-            val rr = bandBase - index * bandGap
+            val visualIndex = sessions.lastIndex - index
+            val rr = bandBase - visualIndex * bandGap
             drawSessionBand(canvas, cx, cy, rr, bandWidth, session, selected.contains(session.name), now)
         }
 
@@ -211,21 +213,30 @@ class AnalogClockView(
         val candleText = formatCandle(candle.remainingSeconds)
         canvas.drawText("CANDLE  $candleText", cx, cy + radius * 0.23f, digital)
 
-        // Session names live directly inside their own broad sectors.
+        // Session names are centered on the middle of each session arc and follow
+        // the arc itself. Text is white to contrast with the blue session band.
         labelPaint.textSize = radius * 0.050f
         sessions.forEachIndexed { index, session ->
-            val rr = bandBase - index * bandGap
+            val visualIndex = sessions.lastIndex - index
+            val rr = bandBase - visualIndex * bandGap
             val local = sessionLocalInterval(session, now)
             val mid = midpointAngle(local.first, local.second)
-            val angle = Math.toRadians(mid * 15.0 - 90.0)
-            labelPaint.color = if (darkTheme) ColorForLabel(session.color, true) else session.color
-            labelPaint.alpha = if (selected.contains(session.name)) 245 else 55
-            canvas.drawText(
-                session.name,
-                cx + cos(angle).toFloat() * rr,
-                cy + sin(angle).toFloat() * rr - (labelPaint.ascent() + labelPaint.descent()) / 2f,
-                labelPaint
+            val angleDeg = mid * 15f - 90f
+            labelPaint.color = 0xFFFFFFFF.toInt()
+            labelPaint.alpha = if (selected.contains(session.name)) 250 else 75
+            labelPaint.textAlign = Paint.Align.CENTER
+
+            val path = Path()
+            val arcSpan = min(
+                26f,
+                ((local.second - local.first + 24f) % 24f).coerceAtLeast(4f) * 15f * 0.55f
             )
+            val start = angleDeg - arcSpan / 2f
+            path.addArc(RectF(cx - rr, cy - rr, cx + rr, cy + rr), start, arcSpan)
+            val arcLength = arcSpan * Math.PI.toFloat() / 180f * rr
+            val textWidth = labelPaint.measureText(session.name)
+            val hOffset = ((arcLength - textWidth) / 2f).coerceAtLeast(0f)
+            canvas.drawTextOnPath(path, session.name, hOffset, 0f, labelPaint)
         }
 
         postInvalidateDelayed(120)
@@ -330,7 +341,8 @@ class AnalogClockView(
         var hitIndex = -1
         var hitDistance = Float.MAX_VALUE
         sessions.forEachIndexed { index, _ ->
-            val rr = bandBase - index * bandGap
+            val visualIndex = sessions.lastIndex - index
+            val rr = bandBase - visualIndex * bandGap
             val d = kotlin.math.abs(distance - rr)
             if (d <= bandWidth * 1.7f && d < hitDistance) {
                 hitDistance = d
