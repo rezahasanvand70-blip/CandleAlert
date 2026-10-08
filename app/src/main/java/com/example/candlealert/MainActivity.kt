@@ -305,7 +305,7 @@ class MainActivity : AppCompatActivity() {
         content.addView(quickControl("MARKET", market) { chooseMarket() },
             LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 12) })
         content.addView(quickControl("ALERT", timingSummary()) { chooseTiming() },
-            LinearLayout.LayoutParams(-1, 88).apply { setMargins(0, 0, 0, 10) })
+            LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 12) })
         content.addView(quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
             LinearLayout.LayoutParams(-1, 118).apply { setMargins(0, 0, 0, 20) })
 
