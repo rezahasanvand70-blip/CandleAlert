@@ -11,6 +11,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.content.res.Configuration
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
