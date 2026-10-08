@@ -22,7 +22,8 @@ jobs:
         run: gradle assembleDebug --stacktrace
       - name: Print debug OAuth certificate fingerprint
         run: |
-          gradle signingReport | grep -E "Variant: debug|SHA1:|SHA-1:"
+          echo "=== DEBUG SIGNING REPORT (verify SHA-1 for Google OAuth) ==="
+          gradle signingReport
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
