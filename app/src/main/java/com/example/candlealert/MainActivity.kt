@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
         this.text = s
         textSize = size
         setTextColor(color)
-        includeFontPadding = false
+        includeFontPadding = true
     }
 
     private fun divider(): View = View(this).apply { setBackgroundColor(line) }
