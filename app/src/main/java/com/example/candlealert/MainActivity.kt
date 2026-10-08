@@ -1287,17 +1287,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalEditExitTimeStep(t: JournalTrade) {
-        val current = t.exitTime?.let { journalDate(it) } ?: ""
-        journalEditAsk("Edit • Exit Time", "yyyy-MM-dd HH:mm", current) { value ->
-            val parsed = try {
-                if (value.isBlank()) null
-                else java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(value)?.time
-            } catch (_: Exception) { null }
-            if (value.isNotBlank() && parsed == null) {
-                Toast.makeText(this, "Use format yyyy-MM-dd HH:mm", Toast.LENGTH_SHORT).show()
-                journalEditExitTimeStep(t)
-            } else {
-                t.exitTime = parsed
+        val current = t.exitTime ?: System.currentTimeMillis()
+        val button = smallButton("Exit time: " + journalDate(current), true).apply {
+            setOnClickListener {
+                journalPickDateTime("Edit • Exit Time", current) { picked ->
+                    t.exitTime = picked
+                    journalSaveEditedTrade(t)
+                }
+            }
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(4), dp(18), dp(8))
+            addView(text("Change the actual time you closed the trade. The displayed duration will update automatically.", 13f, muted).apply {
+                setPadding(dp(0), dp(0), dp(0), dp(12))
+            })
+            addView(button, lp(-1, 50))
+        }
+        AlertDialog.Builder(this).setTitle("Edit • Exit Time")
+            .setView(box)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Done") { _, _ -> journalSaveEditedTrade(t) }
+            .show()
                 journalEditPnlStep(t)
             }
         }
