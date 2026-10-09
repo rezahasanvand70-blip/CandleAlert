@@ -502,6 +502,8 @@ class MainActivity : AppCompatActivity() {
             })
         }
         prefs.edit().putString("journal_trades_v2", a.toString()).apply()
+        // Automatically queue a cloud sync after every journal change.
+        googleSheetsSyncIfConnected()
     }
 
     private fun journalDuration(start: Long, end: Long): String {
@@ -578,13 +580,11 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (ok) {
                     prefs.edit().putBoolean("google_sheets_connected", true).putLong("google_sheets_last_sync", System.currentTimeMillis()).apply()
-                    Toast.makeText(this, "Google Sheets synced successfully.", Toast.LENGTH_SHORT).show()
-                    showGoogleSheetsSettings()
+                    // Keep the user on the current screen; automatic sync should be invisible.
                 } else {
                     prefs.edit().putBoolean("google_sheets_connected", false).apply()
                     val msg = GoogleSheetsApi.lastError.ifBlank { "Google Sheets sync failed." }
-                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                    showGoogleSheetsSettings()
+                    // Do not interrupt journal entry; failure remains available in Sheets settings.
                 }
             }
         }.start()
