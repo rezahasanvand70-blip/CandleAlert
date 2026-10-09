@@ -5,43 +5,49 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Full adaptive-icon background -->
-    <path android:fillColor="#073746" android:pathData="M0,0h108v108h-108z"/>
-    <path android:fillColor="#1B6570" android:fillAlpha="0.42"
-        android:pathData="M0,0h108v50c-16,-8 -31,-11 -48,-8C38,45 18,49 0,61z"/>
+    <!-- Transparent foreground: the adaptive launcher background is supplied separately. -->
+    <!-- Candlesticks stay inside the adaptive-icon safe area so circle/squircle masks do not crop them. -->
+    <path
+        android:fillColor="#25DFA0"
+        android:pathData="M19,53h10v19h-10z" />
+    <path
+        android:strokeColor="#25DFA0"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M24,46v33" />
 
-    <!-- Foreground artwork kept inside the adaptive-icon safe zone. -->
-    <group
-        android:scaleX="0.61"
-        android:scaleY="0.61"
-        android:translateX="21"
-        android:translateY="21">
+    <path
+        android:fillColor="#FF5967"
+        android:pathData="M35,39h10v25h-10z" />
+    <path
+        android:strokeColor="#FF5967"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M40,31v41" />
 
-        <path android:fillColor="#F4E7B7" android:fillAlpha="0.95"
-            android:pathData="M13,61C13,34 32,15 57,15c18,0 33,9 40,23l-4,2C86,28 73,20 57,20c-22,0 -39,17 -39,41z"/>
-        <path android:fillColor="#9DB9B8" android:fillAlpha="0.45"
-            android:pathData="M17,67C16,64 16,61 16,58C16,32 34,13 58,13c20,0 37,11 45,28l-3,2C92,27 76,18 58,18C37,18 21,35 21,58c0,3 0,6 1,9z"/>
+    <path
+        android:fillColor="#25DFA0"
+        android:pathData="M51,46h10v22h-10z" />
+    <path
+        android:strokeColor="#25DFA0"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M56,39v37" />
 
-        <path android:fillColor="#0B3140"
-            android:pathData="M0,76L12,67L20,72L31,61L41,70L52,57L62,70L74,58L86,70L96,61L108,69V108H0z"/>
-        <path android:fillColor="#092936"
-            android:pathData="M0,88L13,76L25,84L37,73L49,86L62,72L75,82L88,70L100,80L108,76V108H0z"/>
+    <path
+        android:fillColor="#35E6A5"
+        android:pathData="M67,30h10v29h-10z" />
+    <path
+        android:strokeColor="#35E6A5"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M72,22v42" />
 
-        <path android:fillColor="#25DFA0" android:pathData="M27,51h9v22h-9z"/>
-        <path android:fillColor="#25DFA0" android:pathData="M30,46h3v5h-3z"/>
-        <path android:fillColor="#FF4654" android:pathData="M43,43h9v27h-9z"/>
-        <path android:fillColor="#FF4654" android:pathData="M46,37h3v6h-3z"/>
-        <path android:fillColor="#22C98E" android:pathData="M59,40h9v25h-9z"/>
-        <path android:fillColor="#22C98E" android:pathData="M62,34h3v6h-3z"/>
-        <path android:fillColor="#35E6A5" android:pathData="M75,31h10v30h-10z"/>
-        <path android:fillColor="#35E6A5" android:pathData="M78,24h3v7h-3z"/>
-
-        <path android:fillColor="#FFFFFF"
-            android:pathData="M77,76c0,-7 3,-12 8,-15v-3c0,-3 2,-5 5,-5s5,2 5,5v3c5,3 8,8 8,15v6h3v4H74v-4h3z"/>
-        <path android:fillColor="#FFFFFF" android:pathData="M87,88h6c0,3 -1,5 -3,5s-3,-2 -3,-5z"/>
-        <path android:fillColor="#FFFFFF" android:fillAlpha="0.95"
-            android:pathData="M74,68c-3,3 -4,6 -4,10s1,7 4,10l3,-3c-2,-2 -3,-4 -3,-7s1,-5 3,-7z"/>
-        <path android:fillColor="#FFFFFF" android:fillAlpha="0.95"
-            android:pathData="M105,68c3,3 4,6 4,10s-1,7 -4,10l-3,-3c2,-2 3,-4 3,-7s-1,-5 -3,-7z"/>
-    </group>
+    <!-- Notification bell, separated from the candles and kept within the mask-safe area. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,68c0,-5 2,-8 5,-10v-2c0,-2 1,-3 3,-3s3,1 3,3v2c3,2 5,5 5,10v4h2v3H65v-3h5z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M74,77h6c0,3 -1,4 -3,4s-3,-1 -3,-4z" />
 </vector>
