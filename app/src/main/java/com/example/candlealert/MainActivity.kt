@@ -1714,14 +1714,14 @@ class MainActivity : AppCompatActivity() {
     private fun addNotificationAppRow(root: LinearLayout, pkg: String, name: String, current: String) {
         val c = panel().apply { setPadding(dp(16), dp(7), dp(14), dp(7)) }
         val r = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        r.addView(text(name, 16f), lp(0, 58).apply { weight = 1f })
+        r.addView(text(name, 16f), lp(0, -2).apply { weight = 1f })
         if (pkg == current) r.addView(text("✓", 22f, accent))
         c.addView(r)
         c.setOnClickListener {
             prefs.edit().putString("notification_app_package", pkg).putString("notification_app_label", name).apply()
             showSettings()
         }
-        root.addView(c, lp(-1, 74).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
+        root.addView(c, lp(-1, -2).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
     }
 
     private fun showInstalledAppsPicker() {
