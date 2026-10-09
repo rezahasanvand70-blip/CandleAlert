@@ -46,8 +46,8 @@
     <!-- Notification bell, separated from the candles and kept within the mask-safe area. -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M70,31c0,-5 2,-8 5,-10v-2c0,-2 1,-3 3,-3s3,1 3,3v2c3,2 5,5 5,10v4h2v3H65v-3h5z" />
+        android:pathData="M70,68c0,-5 2,-8 5,-10v-2c0,-2 1,-3 3,-3s3,1 3,3v2c3,2 5,5 5,10v4h2v3H65v-3h5z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M74,40h6c0,3 -1,4 -3,4s-3,-1 -3,-4z" />
+        android:pathData="M74,77h6c0,3 -1,4 -3,4s-3,-1 -3,-4z" />
 </vector>
