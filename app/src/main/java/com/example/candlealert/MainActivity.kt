@@ -204,7 +204,7 @@ class MainActivity : AppCompatActivity() {
             if (enabled) "Next candle alert is scheduled." else "Turn alerts on to schedule the next candle.",
             12f, muted
         ).apply { setPadding(dp(0), dp(5), dp(0), dp(0)) })
-        statusRow.addView(statusTexts, lp(0, 72).apply { weight = 1f })
+        statusRow.addView(statusTexts, lp(0, -2).apply { weight = 1f })
         val sw = Switch(this).apply {
             isChecked = enabled
             minWidth = dp(62)
@@ -218,7 +218,7 @@ class MainActivity : AppCompatActivity() {
             Scheduler.scheduleNext(this)
             showHome()
         }
-        content.addView(status, lp(-1, 138).apply {
+        content.addView(status, lp(-1, -2).apply {
             setMargins(dp(0), dp(8), dp(0), dp(12))
         })
 
@@ -610,38 +610,54 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+
     private fun showGoogleSheetsSettings() {
         val root = base()
         root.addView(text("Google Sheets", 28f))
         root.addView(text("Keep your Journal in your personal Google Sheet so the data survives app replacement or deletion.", 14f, muted).apply {
             setPadding(dp(0), dp(4), dp(0), dp(14))
         })
+
+        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(0), dp(0), dp(0), dp(12))
+        }
+        scroll.addView(content)
+
         val connected = prefs.getBoolean("google_sheets_connected", false)
         val id = prefs.getString("google_sheets_id", "") ?: ""
         val url = prefs.getString("google_sheets_url", "") ?: ""
         val status = panel().apply { setPadding(dp(18), dp(16), dp(18), dp(16)) }
-        status.addView(text(if (connected) "●  Connected" else "○  Not connected", 18f, if (connected) green else muted).apply { typeface = Typeface.DEFAULT_BOLD })
-        status.addView(text(if (id.isBlank()) "No Journal Sheet selected." else "Candle Alert Journal is linked.", 13f, muted).apply { setPadding(dp(0), dp(5), dp(0), dp(0)) })
-        root.addView(status, lp(-1, 94).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
-        root.addView(smallButton(if (connected) "Google Account  •  Connected" else "Connect Google Account", true).apply {
+        status.addView(text(if (connected) "●  Connected" else "○  Not connected", 18f, if (connected) green else muted).apply {
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        status.addView(text(if (id.isBlank()) "No Journal Sheet selected." else "Candle Alert Journal is linked.", 13f, muted).apply {
+            setPadding(dp(0), dp(5), dp(0), dp(0))
+        })
+        content.addView(status, lp(-1, -2).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
+        content.addView(smallButton(if (connected) "Google Account  •  Connected" else "Connect Google Account", true).apply {
             setOnClickListener { googleSheetsConnect() }
         }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
-        root.addView(smallButton("Create New Personal Journal Sheet").apply {
+        content.addView(smallButton("Create New Personal Journal Sheet").apply {
             setOnClickListener { googleSheetsConnect(createIfMissing = true) }
         }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
-        root.addView(smallButton("Use Existing Sheet ID / URL").apply {
+        content.addView(smallButton("Use Existing Sheet ID / URL").apply {
             setOnClickListener { editGoogleSheetId() }
         }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
-        root.addView(smallButton("Sync Now").apply {
+        content.addView(smallButton("Sync Now").apply {
             setOnClickListener { googleSheetsSyncIfConnected() }
         }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         if (url.isNotBlank()) {
-            root.addView(smallButton("Open Google Sheet", true).apply {
+            content.addView(smallButton("Open Google Sheet", true).apply {
                 setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
             }, lp(-1, 54).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         }
-        root.addView(text("The sheet contains Trade ID, status, entry/exit data, P/L, reasons, notes and account balance.", 12f, muted).apply { setPadding(dp(2), dp(8), dp(2), dp(8)) })
-        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
+        content.addView(text("The sheet contains Trade ID, status, entry/exit data, P/L, reasons, notes and account balance.", 12f, muted).apply {
+            setPadding(dp(2), dp(8), dp(2), dp(8))
+        })
+
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
@@ -1523,16 +1539,27 @@ class MainActivity : AppCompatActivity() {
             }.show()
     }
 
+
     private fun showSessions() {
         val root = base()
         root.addView(text("Trading Sessions", 28f))
-        root.addView(text("Select the Forex sessions used for alerts.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
+        root.addView(text("Select the Forex sessions used for alerts.", 14f, muted).apply {
+            setPadding(dp(0), dp(4), dp(0), dp(12))
+        })
+
+        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(0), dp(0), dp(0), dp(12))
+        }
+        scroll.addView(content)
+
         val sessions = listOf("Sydney", "Tokyo", "Frankfurt", "London", "New York")
         val selected = prefs.getStringSet("sessions", sessions.toSet())?.toMutableSet() ?: sessions.toMutableSet()
         sessions.forEach { s ->
             val c = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-            row.addView(text(s, 16f), lp(0, 58).apply { weight = 1f })
+            row.addView(text(s, 16f), lp(0, -2).apply { weight = 1f })
             val sw = Switch(this).apply { isChecked = selected.contains(s); minWidth = dp(52) }
             row.addView(sw, lp(56, 48))
             c.addView(row)
@@ -1541,12 +1568,13 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putStringSet("sessions", selected).apply()
                 Scheduler.scheduleNext(this)
             }
-            root.addView(c, lp(-1, 74).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
+            content.addView(c, lp(-1, -2).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
         }
+
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         root.addView(smallButton("Done", true).apply {
             setOnClickListener { showSettings() }
         }, lp(-1, 50).apply { setMargins(dp(0), dp(10), dp(0), dp(8)) })
-        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
@@ -1563,67 +1591,122 @@ class MainActivity : AppCompatActivity() {
             }.show()
     }
 
+
     private fun showThemeSettings() {
         val root = base()
         root.addView(text("Theme", 28f))
-        root.addView(text("Choose light, dark, or your phone's system theme.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(14)) })
+        root.addView(text("Choose light, dark, or your phone's system theme.", 14f, muted).apply {
+            setPadding(dp(0), dp(4), dp(0), dp(14))
+        })
+
+        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(0), dp(0), dp(0), dp(12))
+        }
+        scroll.addView(content)
+
         val modes = listOf("light" to "Light", "dark" to "Dark", "system" to "System default")
         modes.forEach { pair ->
             val mode = pair.first
             val c = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-            val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
+            val titles = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
             titles.addView(text(pair.second, 17f).apply { typeface = Typeface.DEFAULT_BOLD })
-            titles.addView(text(when(mode) {"light" -> "Always use light mode"; "dark" -> "Always use dark mode"; else -> "Match the phone's system theme"}, 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
-            row.addView(titles, lp(0, 66).apply { weight = 1f })
+            titles.addView(text(
+                when (mode) {
+                    "light" -> "Always use light mode"
+                    "dark" -> "Always use dark mode"
+                    else -> "Match the phone's system theme"
+                }, 12f, muted
+            ).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
+            row.addView(titles, lp(0, -2).apply { weight = 1f })
             row.addView(text(if (prefs.getString("theme_mode", "light") == mode) "✓" else "", 23f, accent))
             c.addView(row)
-            c.setOnClickListener { prefs.edit().putString("theme_mode", mode).apply(); applyNightModePreference(); showSettings() }
-            root.addView(c, lp(-1, 84).apply { setMargins(dp(0), dp(5), dp(0), dp(5)) })
+            c.setOnClickListener {
+                prefs.edit().putString("theme_mode", mode).apply()
+                applyNightModePreference()
+                showSettings()
+            }
+            content.addView(c, lp(-1, -2).apply { setMargins(dp(0), dp(5), dp(0), dp(5)) })
         }
-        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
+
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
 
+
     private fun chooseNotificationApp() {
         val root = base()
         root.addView(text("Notification App", 28f))
-        root.addView(text("Choose which installed trading app opens when an alert arrives.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
+        root.addView(text("Choose which installed trading app opens when an alert arrives.", 14f, muted).apply {
+            setPadding(dp(0), dp(4), dp(0), dp(12))
+        })
+
+        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(0), dp(0), dp(0), dp(12))
+        }
+        scroll.addView(content)
+
         val current = prefs.getString("notification_app_package", "") ?: ""
         val custom = prefs.getStringSet("custom_notification_apps", emptySet()) ?: emptySet()
 
         val none = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
         val nr = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        nr.addView(text("No app", 16f), lp(0, 58).apply { weight = 1f })
+        nr.addView(text("No app", 16f), lp(0, -2).apply { weight = 1f })
         nr.addView(text(if (current.isEmpty()) "✓" else "", 22f, accent))
         none.addView(nr)
-        none.setOnClickListener { prefs.edit().remove("notification_app_package").remove("notification_app_label").apply(); showSettings() }
-        root.addView(none, lp(-1, 74).apply { setMargins(dp(0), dp(4), dp(0), dp(10)) })
+        none.setOnClickListener {
+            prefs.edit().remove("notification_app_package").remove("notification_app_label").apply()
+            showSettings()
+        }
+        content.addView(none, lp(-1, -2).apply { setMargins(dp(0), dp(4), dp(0), dp(10)) })
 
         val pm = packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val allApps = pm.queryIntentActivities(intent, 0).map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
-            .filter { it.first != packageName }.distinctBy { it.first }
+        val allApps = pm.queryIntentActivities(intent, 0).map {
+            it.activityInfo.packageName to it.loadLabel(pm).toString()
+        }.filter { it.first != packageName }.distinctBy { it.first }
 
-        val words = listOf("metatrader","meta trader","tradingview","trading view","ctrader","ninjatrader","thinktrader","trading 212","ibkr","interactive brokers","etoro","binance","bybit","okx","kraken","coinbase","kucoin","bitget","mexc","deriv","exness","xm trading","alpari","fxtm","oanda","ic markets","pepperstone","eightcap","admirals","tickmill","fbs","roboforex","fxpro","xtb","capital.com","trading","trade","trader","broker","forex","crypto","exchange","invest")
+        val words = listOf(
+            "metatrader", "meta trader", "tradingview", "trading view", "ctrader", "ninjatrader",
+            "thinktrader", "trading 212", "ibkr", "interactive brokers", "etoro", "binance", "bybit",
+            "okx", "kraken", "coinbase", "kucoin", "bitget", "mexc", "deriv", "exness", "xm trading",
+            "alpari", "fxtm", "oanda", "ic markets", "pepperstone", "eightcap", "admirals", "tickmill",
+            "fbs", "roboforex", "fxpro", "xtb", "capital.com", "trading", "trade", "trader", "broker",
+            "forex", "crypto", "exchange", "invest"
+        )
         val tradingApps = allApps.filter { pair -> words.any { pair.second.lowercase().contains(it) } }
-            .sortedWith(compareBy({ !(it.second.contains("MetaTrader", true) || it.second.contains("TradingView", true)) }, { it.second.lowercase() }))
+            .sortedWith(compareBy(
+                { !(it.second.contains("MetaTrader", true) || it.second.contains("TradingView", true)) },
+                { it.second.lowercase() }
+            ))
 
-        root.addView(text("TRADING APPS", 11f, muted).apply { setPadding(dp(2), dp(4), dp(0), dp(5)) })
-        tradingApps.forEach { addNotificationAppRow(root, it.first, it.second, current) }
-        root.addView(text("MY ADDED APPS", 11f, muted).apply { setPadding(dp(2), dp(12), dp(0), dp(5)) })
-        allApps.filter { custom.contains(it.first) }.sortedBy { it.second.lowercase() }.forEach { addNotificationAppRow(root, it.first, it.second, current) }
+        content.addView(text("TRADING APPS", 11f, muted).apply {
+            setPadding(dp(2), dp(4), dp(0), dp(5))
+        })
+        tradingApps.forEach { addNotificationAppRow(content, it.first, it.second, current) }
+        content.addView(text("MY ADDED APPS", 11f, muted).apply {
+            setPadding(dp(2), dp(12), dp(0), dp(5))
+        })
+        allApps.filter { custom.contains(it.first) }.sortedBy { it.second.lowercase() }
+            .forEach { addNotificationAppRow(content, it.first, it.second, current) }
 
-        root.addView(panel().apply {
+        content.addView(panel().apply {
             val r = LinearLayout(this@MainActivity).apply { gravity = Gravity.CENTER_VERTICAL }
-            r.addView(text("＋  Add installed app", 16f), lp(0, 58).apply { weight = 1f })
+            r.addView(text("＋  Add installed app", 16f), lp(0, -2).apply { weight = 1f })
             r.addView(text("›", 28f, muted))
             addView(r)
             setOnClickListener { showInstalledAppsPicker() }
-        }, lp(-1, 74).apply { setMargins(dp(0), dp(10), dp(0), dp(6)) })
+        }, lp(-1, -2).apply { setMargins(dp(0), dp(10), dp(0), dp(6)) })
 
-        root.addView(Space(this), lp(1, 0).apply { weight = 1f })
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
     }
