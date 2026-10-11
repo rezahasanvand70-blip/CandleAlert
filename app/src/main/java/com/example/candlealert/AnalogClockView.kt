@@ -133,7 +133,7 @@ class AnalogClockView(
         number.textSize = radius * 0.058f
         number.color = primary
         number.alpha = 225
-        for (h in 0 until 24) {
+        for (h in 0 until 24 step 3) {
             val angle = Math.toRadians(h * 15.0 - 90.0)
             val nr = radius * 0.900f
             canvas.drawText(h.toString().padStart(2, '0'), cx + cos(angle).toFloat() * nr, cy + sin(angle).toFloat() * nr - (number.ascent() + number.descent()) / 2f, number)
@@ -147,6 +147,10 @@ class AnalogClockView(
         val minuteFloat = minute + secondFloat / 60f
         val hourFloat24 = hour + minuteFloat / 60f
 
+        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, u(7f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
+        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
+        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), 0xFFC5A15A.toInt())
+
         // Digital clock centered beneath the hands, with enough separation for the candle timer.
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF1B302D.toInt() else 0xFFF1F2E9.toInt()
@@ -155,10 +159,6 @@ class AnalogClockView(
         digital.textSize = radius * 0.082f
         val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
         canvas.drawText(timeText, cx, cy - (digital.ascent() + digital.descent()) / 2f, digital)
-
-        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, u(7f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
-        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
-        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), 0xFFC5A15A.toInt())
 
         center.color = 0xFFC5A15A.toInt()
         canvas.drawCircle(cx, cy, u(6f), center)
@@ -197,7 +197,7 @@ class AnalogClockView(
             canvas.drawTextOnPath(session.name, path, hOffset, vOffset, labelPaint)
         }
 
-        postInvalidateDelayed(120)
+        postInvalidateDelayed(1000)
     }
 
     private data class CandleState(val progress: Float, val remainingSeconds: Long)
