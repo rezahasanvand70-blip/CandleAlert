@@ -15,6 +15,7 @@
             </intent-filter>
         </activity>
         <receiver android:name=".AlertReceiver" android:exported="false" />
+        <receiver android:name=".EconomicAlertReceiver" android:exported="false" />
         <receiver android:name=".RescheduleReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
