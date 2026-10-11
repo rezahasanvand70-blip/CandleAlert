@@ -373,6 +373,18 @@ class MainActivity : AppCompatActivity() {
         val run = object : Runnable {
             override fun run() {
                 if (isFinishing) return
+                val instant = java.time.ZonedDateTime.now()
+                computerClockView?.text = String.format(Locale.getDefault(), "%02d:%02d:%02d", instant.hour, instant.minute, instant.second)
+                val tfMinutes = prefs.getInt("tf", 60).coerceAtLeast(1)
+                val marketOpenParts = (prefs.getString("open_market", "00:00") ?: "00:00").split(":")
+                val openHour = marketOpenParts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 0
+                val openMinute = marketOpenParts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+                var anchor = instant.toLocalDate().atTime(openHour, openMinute).atZone(instant.zone)
+                if (instant.isBefore(anchor)) anchor = anchor.minusDays(1)
+                val periodSeconds = tfMinutes * 60L
+                val elapsedSeconds = java.time.Duration.between(anchor, instant).seconds.coerceAtLeast(0L)
+                val candleRemaining = (periodSeconds - (elapsedSeconds % periodSeconds)).coerceIn(0L, periodSeconds)
+                candleCountdownView?.text = String.format(Locale.getDefault(), "%02d:%02d", candleRemaining / 60L, candleRemaining % 60L)
                 val trigger = Scheduler.nextTrigger(this@MainActivity)
                 val now = System.currentTimeMillis() / 1000
                 if (trigger == null) {
