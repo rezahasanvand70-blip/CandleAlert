@@ -10,9 +10,11 @@ import android.view.MotionEvent
 import android.view.View
 import java.time.*
 import java.util.Locale
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 class AnalogClockView(
     context: Context,
@@ -100,8 +102,15 @@ class AnalogClockView(
         val progressSweep = (candle.progress * 360f).coerceIn(0f, 359.9f)
         canvas.drawArc(RectF(cx - radius - u(7f), cy - radius - u(7f), cx + radius + u(7f), cy + radius + u(7f)), -90f, progressSweep, false, candlePaint)
 
-        // Replace the radial session bands with a pixel world map.
-        drawPixelWorldMap(canvas, cx, cy, radius * 1.30f, radius * 0.66f, selected, now)
+        val bandBase = radius * 0.76f
+        val bandGap = radius * 0.115f
+        val bandWidth = radius * 0.090f
+
+        sessions.forEachIndexed { index, session ->
+            val visualIndex = sessions.lastIndex - index
+            val rr = bandBase - visualIndex * bandGap
+            drawSessionBand(canvas, cx, cy, rr, bandWidth, session, selected.contains(session.name), now)
+        }
 
         // Hour markers are small dots placed outside the numerals, so they never cross the 1–24 labels.
         tick.style = Paint.Style.FILL
@@ -144,7 +153,32 @@ class AnalogClockView(
 
         // Digital time and candle countdown are shown in the compact strip below the dial.
 
-        // Session activity is represented by highlighted country borders on the map.
+        // Labels use a fixed center point on each band: both angularly and radially.
+        labelPaint.textSize = radius * 0.047f
+        sessions.forEachIndexed { index, session ->
+            val visualIndex = sessions.lastIndex - index
+            val rr = bandBase - visualIndex * bandGap
+            val local = sessionLocalInterval(session, now)
+            val mid = midpointAngle(local.first, local.second)
+            val angleDeg = mid * 15f - 90f
+            labelPaint.color = 0xFFFFFFFF.toInt()
+            labelPaint.alpha = if (selected.contains(session.name)) 250 else 75
+            labelPaint.textAlign = Paint.Align.CENTER
+
+            val path = Path()
+            val arcSpan = min(48f, ((local.second - local.first + 24f) % 24f).coerceAtLeast(4f) * 15f * 0.78f)
+            val start = angleDeg - arcSpan / 2f
+            path.addArc(RectF(cx - rr, cy - rr, cx + rr, cy + rr), start, arcSpan)
+
+            val arcLength = arcSpan * Math.PI.toFloat() / 180f * rr
+            val textWidth = labelPaint.measureText(session.name)
+            // Shift by half the difference so the text's midpoint sits at the path midpoint.
+            val hOffset = ((arcLength - textWidth) / 2f).coerceAtLeast(0f)
+            // Move baseline by font metrics so the glyphs sit vertically centered on the band.
+            val fm = labelPaint.fontMetrics
+            val vOffset = -(fm.ascent + fm.descent) / 2f
+            canvas.drawTextOnPath(session.name, path, hOffset, vOffset, labelPaint)
+        }
 
         postInvalidateDelayed(1000)
     }
@@ -174,146 +208,84 @@ class AnalogClockView(
         return String.format(Locale.getDefault(), "%02d:%02d", m, s)
     }
 
-    private data class GeoPoint(val lon: Double, val lat: Double)
+    private fun drawSessionBand(canvas: Canvas, cx: Float, cy: Float, rr: Float, width: Float, session: Session, enabled: Boolean, now: ZonedDateTime) {
+        ringTrack.color = if (darkTheme) 0xFF3A514C.toInt() else 0xFFDDE3DA.toInt()
+        ringTrack.strokeWidth = width
+        ringTrack.alpha = if (darkTheme) 150 else 125
+        canvas.drawCircle(cx, cy, rr, ringTrack)
 
-    private val landRegions = listOf(
-        listOf(GeoPoint(-168.0, 65.0), GeoPoint(-140.0, 70.0), GeoPoint(-112.0, 58.0), GeoPoint(-95.0, 50.0), GeoPoint(-82.0, 25.0), GeoPoint(-105.0, 15.0), GeoPoint(-117.0, 32.0), GeoPoint(-130.0, 50.0), GeoPoint(-155.0, 55.0)),
-        listOf(GeoPoint(-82.0, 12.0), GeoPoint(-68.0, 8.0), GeoPoint(-50.0, -5.0), GeoPoint(-35.0, -10.0), GeoPoint(-48.0, -35.0), GeoPoint(-70.0, -55.0), GeoPoint(-78.0, -25.0)),
-        listOf(GeoPoint(-12.0, 36.0), GeoPoint(8.0, 37.0), GeoPoint(35.0, 30.0), GeoPoint(50.0, 12.0), GeoPoint(42.0, -12.0), GeoPoint(28.0, -35.0), GeoPoint(14.0, -35.0), GeoPoint(-2.0, 5.0), GeoPoint(-17.0, 15.0)),
-        listOf(GeoPoint(-10.0, 36.0), GeoPoint(2.0, 50.0), GeoPoint(18.0, 58.0), GeoPoint(38.0, 68.0), GeoPoint(65.0, 55.0), GeoPoint(95.0, 58.0), GeoPoint(130.0, 50.0), GeoPoint(160.0, 60.0), GeoPoint(178.0, 48.0), GeoPoint(150.0, 35.0), GeoPoint(122.0, 20.0), GeoPoint(105.0, 5.0), GeoPoint(78.0, 8.0), GeoPoint(58.0, 25.0), GeoPoint(42.0, 38.0), GeoPoint(28.0, 36.0), GeoPoint(15.0, 45.0), GeoPoint(5.0, 36.0)),
-        listOf(GeoPoint(112.0, -11.0), GeoPoint(154.0, -10.0), GeoPoint(153.0, -39.0), GeoPoint(132.0, -44.0), GeoPoint(114.0, -33.0)),
-        listOf(GeoPoint(95.0, 5.0), GeoPoint(130.0, 5.0), GeoPoint(140.0, -8.0), GeoPoint(112.0, -10.0)),
-        listOf(GeoPoint(-52.0, 60.0), GeoPoint(-42.0, 82.0), GeoPoint(-20.0, 78.0), GeoPoint(-28.0, 60.0))
-    )
+        val local = sessionLocalInterval(session, now)
+        sessionPaint.color = session.color
+        sessionPaint.strokeWidth = width
+        sessionPaint.alpha = if (enabled) 225 else 42
 
-    private val sessionCountries = mapOf(
-        "Sydney" to listOf(GeoPoint(113.0, -11.0), GeoPoint(154.0, -11.0), GeoPoint(153.0, -39.0), GeoPoint(145.0, -43.0), GeoPoint(132.0, -35.0), GeoPoint(114.0, -22.0)),
-        "Tokyo" to listOf(GeoPoint(129.0, 31.0), GeoPoint(132.0, 34.0), GeoPoint(136.0, 35.0), GeoPoint(141.0, 40.0), GeoPoint(145.0, 44.0), GeoPoint(141.0, 46.0), GeoPoint(137.0, 39.0), GeoPoint(132.0, 36.0)),
-        "Frankfurt" to listOf(GeoPoint(5.5, 55.0), GeoPoint(14.8, 54.8), GeoPoint(15.0, 50.7), GeoPoint(12.0, 47.3), GeoPoint(7.0, 47.4), GeoPoint(5.5, 50.0)),
-        "London" to listOf(GeoPoint(-6.5, 58.5), GeoPoint(1.7, 58.0), GeoPoint(1.5, 50.0), GeoPoint(-5.5, 50.0), GeoPoint(-6.5, 54.0)),
-        "New York" to listOf(GeoPoint(-124.0, 48.5), GeoPoint(-117.0, 32.5), GeoPoint(-106.0, 31.8), GeoPoint(-97.0, 26.0), GeoPoint(-81.0, 25.0), GeoPoint(-80.0, 32.0), GeoPoint(-67.0, 45.0), GeoPoint(-83.0, 47.5), GeoPoint(-95.0, 49.0))
-    )
-
-    private fun drawPixelWorldMap(
-        canvas: Canvas,
-        cx: Float,
-        cy: Float,
-        mapWidth: Float,
-        mapHeight: Float,
-        selected: Set<String>,
-        now: ZonedDateTime
-    ) {
-        val left = cx - mapWidth / 2f
-        val top = cy - mapHeight / 2f
-        val cols = 48
-        val rows = 22
-        val cellW = mapWidth / cols
-        val cellH = mapHeight / rows
-        val gap = maxOf(u(0.45f), cellW * 0.14f)
-        val utc = now.withZoneSameInstant(ZoneOffset.UTC)
-        val utcHour = utc.hour + utc.minute / 60.0
-        val dayOfYear = utc.dayOfYear
-        val declination = Math.toRadians(23.44 * sin(2.0 * Math.PI * (dayOfYear - 81) / 365.0))
-        val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-        val pixel = RectF()
-        val clip = Path().apply { addCircle(cx, cy, mapWidth * 0.53f, Path.Direction.CW) }
-        val save = canvas.save()
-        canvas.clipPath(clip)
-
-        for (row in 0 until rows) {
-            for (col in 0 until cols) {
-                val lon = -180.0 + (col + 0.5) * 360.0 / cols
-                val lat = 82.0 - (row + 0.5) * 142.0 / rows
-                val point = GeoPoint(lon, lat)
-                if (landRegions.none { pointInPolygon(point, it) }) continue
-                val hourAngle = Math.toRadians((utcHour + lon / 15.0 - 12.0) * 15.0)
-                val latitude = Math.toRadians(lat)
-                val sunHeight = sin(latitude) * sin(declination) + cos(latitude) * cos(declination) * cos(hourAngle)
-                val night = sunHeight < -0.03
-                dot.color = when {
-                    night && darkTheme -> 0xFF284653.toInt()
-                    night -> 0xFF71868B.toInt()
-                    darkTheme -> 0xFF65D6C0.toInt()
-                    else -> 0xFF287D73.toInt()
-                }
-                dot.alpha = if (night) 155 else 230
-                val x = left + col * cellW
-                val y = top + row * cellH
-                pixel.set(x + gap / 2f, y + gap / 2f, x + cellW - gap / 2f, y + cellH - gap / 2f)
-                canvas.drawRect(pixel, dot)
-            }
-        }
-
-        // Draw glowing outlines for enabled market countries; the borders are intentionally
-        // simplified at this pixel-map scale to remain legible behind the clock hands.
-        selected.forEach { name ->
-            val polygon = sessionCountries[name] ?: return@forEach
-            val path = Path()
-            polygon.forEachIndexed { index, p ->
-                val x = left + ((p.lon + 180.0) / 360.0 * mapWidth).toFloat()
-                val y = top + ((82.0 - p.lat) / 142.0 * mapHeight).toFloat()
-                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-            }
-            path.close()
-            val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = u(3.4f)
-                strokeJoin = Paint.Join.ROUND
-                color = sessions.firstOrNull { it.name == name }?.color ?: accent
-                alpha = 55
-            }
-            val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = u(1.25f)
-                strokeJoin = Paint.Join.ROUND
-                color = sessions.firstOrNull { it.name == name }?.color ?: accent
-                alpha = 255
-            }
-            canvas.drawPath(path, glow)
-            canvas.drawPath(path, border)
-        }
-        canvas.restoreToCount(save)
-
-        // Subtle dotted equator accent gives the map a crisp pixel-art finish.
-        dot.color = if (darkTheme) 0xFF9ACBC1.toInt() else 0xFF548E84.toInt()
-        dot.alpha = 65
-        for (i in 0 until cols step 3) {
-            val x = left + (i + 0.5f) * cellW
-            canvas.drawCircle(x, cy, u(0.45f), dot)
-        }
+        val startAngle = local.first * 15f - 90f
+        var sweep = (local.second - local.first) * 15f
+        if (sweep < 0f) sweep += 360f
+        canvas.drawArc(RectF(cx - rr, cy - rr, cx + rr, cy + rr), startAngle, sweep.coerceAtMost(359.9f), false, sessionPaint)
     }
 
-    private fun pointInPolygon(point: GeoPoint, polygon: List<GeoPoint>): Boolean {
-        var inside = false
-        var j = polygon.lastIndex
-        for (i in polygon.indices) {
-            val a = polygon[i]
-            val b = polygon[j]
-            val crosses = (a.lat > point.lat) != (b.lat > point.lat) &&
-                point.lon < (b.lon - a.lon) * (point.lat - a.lat) / ((b.lat - a.lat).takeIf { it != 0.0 } ?: 1e-9) + a.lon
-            if (crosses) inside = !inside
-            j = i
-        }
-        return inside
+    private fun sessionLocalInterval(session: Session, now: ZonedDateTime): Pair<Float, Float> {
+        val localZone = ZoneId.systemDefault()
+        val zone = ZoneId.of(session.zone)
+        val sourceDate = now.withZoneSameInstant(zone).toLocalDate()
+        val startSource = ZonedDateTime.of(sourceDate, LocalTime.of(session.startHour, 0), zone)
+        val endDate = if (session.endHour <= session.startHour) sourceDate.plusDays(1) else sourceDate
+        val endSource = ZonedDateTime.of(endDate, LocalTime.of(session.endHour, 0), zone)
+        val startLocal = startSource.withZoneSameInstant(localZone)
+        val endLocal = endSource.withZoneSameInstant(localZone)
+        return Pair(startLocal.hour + startLocal.minute / 60f, endLocal.hour + endLocal.minute / 60f)
+    }
+
+    private fun midpointAngle(start: Float, end: Float): Float {
+        val span = if (end >= start) end - start else end + 24f - start
+        var mid = start + span / 2f
+        while (mid >= 24f) mid -= 24f
+        return mid
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action != MotionEvent.ACTION_UP) return true
         val cx = width / 2f
         val cy = height / 2f
+        val dx = event.x - cx
+        val dy = event.y - cy
+        val distance = sqrt(dx * dx + dy * dy)
         val size = min(width, height).toFloat()
         val radius = (size / 2f - u(24f)).coerceAtLeast(u(1f))
-        val mapWidth = radius * 1.30f
-        val mapHeight = radius * 0.66f
-        val left = cx - mapWidth / 2f
-        val top = cy - mapHeight / 2f
-        if (event.x < left || event.x > left + mapWidth || event.y < top || event.y > top + mapHeight) return true
-        val lon = ((event.x - left) / mapWidth * 360.0 - 180.0)
-        val lat = 82.0 - ((event.y - top) / mapHeight * 142.0)
-        val point = GeoPoint(lon, lat)
-        val session = sessionCountries.entries.firstOrNull { pointInPolygon(point, it.value) }?.key
-        if (session != null) onSessionToggle(session)
+        val bandBase = radius * 0.76f
+        val bandGap = radius * 0.115f
+        val bandWidth = radius * 0.090f
+
+        var hitIndex = -1
+        var hitDistance = Float.MAX_VALUE
+        sessions.forEachIndexed { index, _ ->
+            val visualIndex = sessions.lastIndex - index
+            val rr = bandBase - visualIndex * bandGap
+            val d = kotlin.math.abs(distance - rr)
+            if (d <= bandWidth * 1.7f && d < hitDistance) {
+                hitDistance = d
+                hitIndex = index
+            }
+        }
+
+        if (hitIndex >= 0) {
+            val angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat() + 90f
+            var hour = angle / 15f
+            while (hour < 0f) hour += 24f
+            while (hour >= 24f) hour -= 24f
+            val session = sessions[hitIndex]
+            val local = sessionLocalInterval(session, ZonedDateTime.now(ZoneId.systemDefault()))
+            if (isHourInRange(hour, local.first, local.second)) {
+                onSessionToggle(session.name)
+                return true
+            }
+        }
         return true
+    }
+
+    private fun isHourInRange(hour: Float, start: Float, end: Float): Boolean {
+        return if (start <= end) hour >= start && hour < end else hour >= start || hour < end
     }
 
     private fun drawHand(canvas: Canvas, cx: Float, cy: Float, length: Float, degrees: Float, width: Float, color: Int) {
