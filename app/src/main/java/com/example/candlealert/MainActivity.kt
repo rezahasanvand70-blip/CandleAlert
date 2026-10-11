@@ -480,7 +480,7 @@ class MainActivity : AppCompatActivity() {
             }
             elevation = dp(2f)
         }
-        val items = listOf("Home" to 0, "Journal" to android.R.drawable.ic_menu_edit, "Settings" to android.R.drawable.ic_menu_preferences)
+        val items = listOf("Home" to 0, "Journal" to android.R.drawable.ic_menu_edit, "Economic Calendar" to android.R.drawable.ic_menu_today, "Settings" to android.R.drawable.ic_menu_preferences)
         items.forEach { pair ->
             val name = pair.first
             val selected = active == name.lowercase()
@@ -497,6 +497,7 @@ class MainActivity : AppCompatActivity() {
                     when (name) {
                         "Home" -> showHome()
                         "Journal" -> showJournal()
+                        "Economic Calendar" -> showEconomicCalendar()
                         "Settings" -> showSettings()
                     }
                 }
@@ -1653,6 +1654,219 @@ class MainActivity : AppCompatActivity() {
                 googleSheetsSyncIfConnected()
                 showJournal()
             }.show()
+    }
+
+
+    private var economicEvents: List<EconomicEvent> = emptyList()
+    private var economicLoading = false
+    private var economicError: String? = null
+    private var economicDays = 7
+    private var economicImpact = "All impact"
+    private var economicCountry = "All countries"
+
+    private fun showEconomicCalendar(refresh: Boolean = false) {
+        settingsVisible = false
+        settingsSubpageVisible = false
+        if (refresh || economicEvents.isEmpty()) loadEconomicEvents()
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(0))
+            setBackgroundColor(bg)
+        }
+        root.addView(text("Economic Calendar", 23f).apply { typeface = Typeface.DEFAULT_BOLD })
+        root.addView(text("Scheduled market-moving releases • times in ${java.time.ZoneId.systemDefault().id}", 12f, muted).apply {
+            setPadding(0, dp(4), 0, dp(12))
+        })
+
+        val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        fun filterSpinner(options: List<String>, selected: String, changed: (String) -> Unit): Spinner {
+            val spinner = Spinner(this)
+            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, options)
+            spinner.setSelection(options.indexOf(selected).coerceAtLeast(0))
+            spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    val value = options.getOrNull(position) ?: return
+                    if (value != selected) changed(value)
+                }
+            }
+            return spinner
+        }
+        val filterRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val dayOptions = listOf("Today" to 1, "7 days" to 7, "14 days" to 14, "30 days" to 30)
+        val daySpinner = filterSpinner(dayOptions.map { it.first }, dayOptions.firstOrNull { it.second == economicDays }?.first ?: "7 days") {
+            economicDays = dayOptions.firstOrNull { pair -> pair.first == it }?.second ?: 7
+            showEconomicCalendar()
+        }
+        val impactOptions = listOf("All impact", "High", "Medium", "Low")
+        val impactSpinner = filterSpinner(impactOptions, economicImpact) {
+            economicImpact = it
+            showEconomicCalendar()
+        }
+        filterRow.addView(daySpinner, lp(0, 48).apply { weight = 1f; setMargins(0, 0, dp(4), 0) })
+        filterRow.addView(impactSpinner, lp(0, 48).apply { weight = 1f; setMargins(dp(4), 0, 0, 0) })
+        controls.addView(filterRow)
+        val countries = listOf("All countries") + economicEvents.map { it.country }.filter { it.isNotBlank() }.distinct().sorted()
+        val countrySpinner = filterSpinner(countries, economicCountry) {
+            economicCountry = it
+            showEconomicCalendar()
+        }
+        controls.addView(countrySpinner, lp(-1, 48))
+        root.addView(controls, lp(-1, -2))
+        root.addView(smallButton(if (economicLoading) "Updating calendar…" else "↻  Refresh calendar", true).apply {
+            isEnabled = !economicLoading
+            setOnClickListener { showEconomicCalendar(refresh = true) }
+        }, lp(-1, 46).apply { setMargins(0, dp(6), 0, dp(8)) })
+
+        val scroll = ScrollView(this).apply { isFillViewport = false }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        if (economicLoading && economicEvents.isEmpty()) {
+            content.addView(panel().apply {
+                addView(text("Loading economic events…", 15f).apply { gravity = Gravity.CENTER })
+                addView(text("Fetching the free calendar feed.", 12f, muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0) })
+            }, lp(-1, 110).apply { setMargins(0, dp(6), 0, dp(8)) })
+        } else if (economicError != null && economicEvents.isEmpty()) {
+            content.addView(panel().apply {
+                addView(text("Calendar unavailable", 17f).apply { typeface = Typeface.DEFAULT_BOLD })
+                addView(text(economicError ?: "Could not load events.", 13f, muted).apply { setPadding(0, dp(6), 0, dp(8)) })
+                addView(smallButton("Try again", true).apply { setOnClickListener { showEconomicCalendar(refresh = true) } })
+            }, lp(-1, -2).apply { setMargins(0, dp(6), 0, dp(8)) })
+        } else {
+            val now = java.time.Instant.now()
+            val zone = java.time.ZoneId.systemDefault()
+            val until = now.plusSeconds(economicDays * 86400L)
+            val filtered = economicEvents.filter { event ->
+                val instant = runCatching { java.time.Instant.parse(event.timeUtc) }.getOrNull()
+                val impactOk = economicImpact == "All impact" || event.impact.equals(economicImpact, true)
+                val countryOk = economicCountry == "All countries" || event.country == economicCountry
+                instant != null && !instant.isBefore(now) && !instant.isAfter(until) && impactOk && countryOk
+            }
+            content.addView(text("${filtered.size} scheduled events", 12f, muted).apply {
+                setPadding(dp(2), dp(6), dp(2), dp(8))
+            })
+            if (filtered.isEmpty()) {
+                content.addView(panel().apply {
+                    addView(text("No events match these filters", 16f).apply { gravity = Gravity.CENTER })
+                    addView(text("Try a wider date range or another impact level.", 12f, muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0) })
+                }, lp(-1, 100).apply { setMargins(0, dp(4), 0, dp(8)) })
+            }
+            filtered.forEach { event ->
+                val card = panel()
+                val impactColor = when (event.impact.lowercase(Locale.US)) {
+                    "high" -> Color.rgb(194, 76, 72)
+                    "medium" -> Color.rgb(194, 139, 42)
+                    "low" -> green
+                    else -> muted
+                }
+                val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                top.addView(text(event.displayTime(zone), 12f, accent).apply { typeface = Typeface.DEFAULT_BOLD }, lp(0, -2).apply { weight = 1f })
+                top.addView(TextView(this).apply {
+                    text = event.impact.uppercase(Locale.US)
+                    textSize = 10f
+                    setTextColor(impactColor)
+                    typeface = Typeface.DEFAULT_BOLD
+                    setPadding(dp(8), dp(4), dp(8), dp(4))
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(if (darkMode) Color.rgb(38, 47, 46) else Color.rgb(246, 242, 226))
+                        cornerRadius = dp(12f)
+                    }
+                })
+                card.addView(top)
+                card.addView(text(event.title, 16f).apply {
+                    typeface = Typeface.DEFAULT_BOLD
+                    setPadding(0, dp(8), 0, dp(4))
+                    maxLines = 4
+                })
+                card.addView(text(listOf(event.country, event.currency, event.category).filter { it.isNotBlank() }.distinct().joinToString(" • "), 11f, muted))
+                val values = listOf(
+                    "Forecast" to event.consensus,
+                    "Previous" to event.previous,
+                    "Actual" to event.actual
+                ).filter { it.second.isNotBlank() }
+                if (values.isNotEmpty()) {
+                    val valueRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                    values.forEach { (label, value) ->
+                        val cell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(6), dp(8), dp(6), dp(4)) }
+                        cell.addView(text(label, 10f, muted))
+                        cell.addView(text(value, 12f).apply { typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(3), 0, 0) })
+                        valueRow.addView(cell, lp(0, -2).apply { weight = 1f })
+                    }
+                    card.addView(valueRow)
+                }
+                val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                val hasAlarm = EconomicAlertScheduler.hasAlarm(this@MainActivity, event.id)
+                actions.addView(smallButton(if (hasAlarm) "✓  Alarm set" else "＋  Set alarm", hasAlarm).apply {
+                    setOnClickListener { chooseEconomicAlarm(event) }
+                }, lp(0, 42).apply { weight = 1f; setMargins(0, dp(8), dp(4), 0) })
+                actions.addView(smallButton("Source ↗").apply {
+                    setOnClickListener {
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(event.url))) }
+                            .onFailure { Toast.makeText(this@MainActivity, "Could not open source link.", Toast.LENGTH_SHORT).show() }
+                    }
+                }, lp(0, 42).apply { weight = 1f; setMargins(dp(4), dp(8), 0, 0) })
+                card.addView(actions)
+                content.addView(card, lp(-1, -2).apply { setMargins(0, dp(3), 0, dp(8)) })
+            }
+        }
+        content.addView(text("Data: FinanceCalendar • Free calendar feed", 11f, muted).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(10), dp(4), dp(4))
+            setOnClickListener { runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.financecalendar.com/api/"))) } }
+        })
+        scroll.addView(content)
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
+        val navHost = LinearLayout(this).apply { setPadding(dp(18), dp(0), dp(18), dp(8)) }
+        addBottom(navHost, "economic calendar")
+        root.addView(navHost)
+        setContentView(root)
+    }
+
+    private fun loadEconomicEvents() {
+        if (economicLoading) return
+        economicLoading = true
+        economicError = null
+        val from = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+        val to = from.plusDays(30)
+        EconomicCalendarRepository.load(from, to) { result ->
+            runOnUiThread {
+                economicLoading = false
+                result.onSuccess {
+                    economicEvents = it
+                    economicError = if (it.isEmpty()) "The provider returned no scheduled events." else null
+                    economicCountry = if (economicCountry != "All countries" && it.none { event -> event.country == economicCountry }) "All countries" else economicCountry
+                }.onFailure {
+                    economicError = it.message ?: "Network error. Check your connection and try again."
+                }
+                if (!isFinishing) showEconomicCalendar()
+            }
+        }
+    }
+
+    private fun chooseEconomicAlarm(event: EconomicEvent) {
+        if (EconomicAlertScheduler.hasAlarm(this, event.id)) {
+            AlertDialog.Builder(this)
+                .setTitle("Economic event reminder")
+                .setMessage("A reminder is already set for this event. Cancel it?")
+                .setNegativeButton("Keep alarm", null)
+                .setPositiveButton("Cancel alarm") { _, _ ->
+                    EconomicAlertScheduler.cancel(this, event.id)
+                    showEconomicCalendar()
+                }
+                .show()
+            return
+        }
+        val choices = arrayOf("At release time", "5 minutes before", "15 minutes before", "30 minutes before", "60 minutes before")
+        val minutes = intArrayOf(0, 5, 15, 30, 60)
+        AlertDialog.Builder(this)
+            .setTitle("Remind me before release")
+            .setItems(choices) { _, which ->
+                val ok = EconomicAlertScheduler.schedule(this, event, minutes[which])
+                val message = if (ok) "Reminder saved on this device." else "This reminder time has already passed, or Android could not schedule it. Choose a future event and check notification/alarm permissions."
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                showEconomicCalendar()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showSettings() {
