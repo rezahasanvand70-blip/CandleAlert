@@ -5,17 +5,17 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- A clock-face emblem makes the new launcher design visibly distinct. -->
+    <!-- High-contrast clock face, kept within the adaptive icon safe area. -->
     <path android:fillColor="#27E0AE"
-        android:pathData="M54,13a41,41 0,1 0,0.1 0z" />
+        android:pathData="M54,20a34,34 0 1,0 0,68a34,34 0 1,0 0,-68z" />
     <path android:fillColor="#102A27"
-        android:pathData="M54,20a34,34 0,1 0,0.1 0z" />
+        android:pathData="M54,25a29,29 0 1,0 0,58a29,29 0 1,0 0,-58z" />
 
     <!-- Hour marks -->
     <path android:strokeColor="#8DEBD0" android:strokeWidth="2.5" android:strokeLineCap="round"
-        android:pathData="M54,24v5 M54,79v5 M24,54h5 M79,54h5" />
+        android:pathData="M54,28v5 M54,75v5 M28,54h5 M75,54h5" />
     <path android:strokeColor="#8DEBD0" android:strokeWidth="1.8" android:strokeLineCap="round"
-        android:pathData="M33,33l3.5,3.5 M71.5,71.5l3.5,3.5 M75,33l-3.5,3.5 M36.5,71.5L33,75" />
+        android:pathData="M35,35l3.5,3.5 M69.5,69.5L73,73 M73,35l-3.5,3.5 M38.5,69.5L35,73" />
 
     <!-- Candlesticks inside the clock face -->
     <path android:strokeColor="#27E0AE" android:strokeWidth="3" android:strokeLineCap="round"
@@ -28,9 +28,9 @@
         android:pathData="M67,35v21" />
     <path android:fillColor="#27E0AE" android:pathData="M62,42h10v10H62z" />
 
-    <!-- Notification bell at lower right -->
+    <!-- Notification bell, distinct from the candle chart -->
     <path android:fillColor="#FFFFFF"
-        android:pathData="M69,67c0,-5 2,-8 5,-10v-3c0,-2 1.5,-3.5 3.5,-3.5S81,52 81,54v3c3,2 5,5 5,10v4h2v3H65v-3h4z" />
+        android:pathData="M67,67c0,-5 2,-8 5,-10v-3c0,-2 1.5,-3.5 3.5,-3.5S79,52 79,54v3c3,2 5,5 5,10v4h2v3H63v-3h4z" />
     <path android:fillColor="#F5C76A"
-        android:pathData="M74,77h7c0,3 -1.5,4.5 -3.5,4.5S74,80 74,77z" />
+        android:pathData="M72,77h7c0,3 -1.5,4.5 -3.5,4.5S72,80 72,77z" />
 </vector>
