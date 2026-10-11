@@ -259,7 +259,7 @@ class AnalogClockView(
             while (hour < 0f) hour += 24f
             while (hour >= 24f) hour -= 24f
             val session = sessions[hitIndex]
-            val local = sessionLocalInterval(session, ZonedDateTime.now(ZoneId.systemDefault()))
+            val local = sessionLocalInterval(session, ZonedDateTime.now(TradingSessions.displayZone(context)))
             if (isHourInRange(hour, local.first, local.second)) {
                 onSessionToggle(session.name)
                 return true
