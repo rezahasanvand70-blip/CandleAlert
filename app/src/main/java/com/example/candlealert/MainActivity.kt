@@ -1666,22 +1666,40 @@ class MainActivity : AppCompatActivity() {
     private var economicCountry = "All countries"
 
     private fun eventRegionLabel(event: EconomicEvent): String {
-        val currency = event.currency.uppercase(Locale.US).trim()
+        val country = event.country.trim().lowercase(Locale.US)
+        val currency = event.currency.trim().uppercase(Locale.US)
         val source = "${event.country} ${event.currency} ${event.title} ${event.category}".lowercase(Locale.US)
+        fun hasToken(value: String, token: String): Boolean =
+            Regex("(^|[^a-z])" + Regex.escape(token.lowercase(Locale.US)) + "([^a-z]|$)").containsMatchIn(value)
         return when {
-            currency.contains("EUR") || source.contains("euro area") || source.contains("eurozone") || source.contains("european central bank") || source.contains("ecb ") -> "🇪🇺 Euro (EUR)"
-            currency.contains("USD") || source.contains("united states") || source.contains("u.s.") || source.contains("federal reserve") || source.contains("nonfarm payroll") || source.contains("us dollar") || source.contains("usd") -> "🇺🇸 US Dollar (USD)"
-            currency.contains("JPY") || source.contains("japan") || source.contains("bank of japan") || source.contains("jpy") -> "🇯🇵 Japan (JPY)"
-            currency.contains("GBP") || source.contains("united kingdom") || source.contains("britain") || source.contains("bank of england") || source.contains("gbp") -> "🇬🇧 UK Pound (GBP)"
-            currency.contains("AUD") || source.contains("australia") || source.contains("reserve bank of australia") || source.contains("aud") -> "🇦🇺 Australian Dollar (AUD)"
-            currency.contains("CAD") || source.contains("canada") || source.contains("bank of canada") || source.contains("cad") -> "🇨🇦 Canadian Dollar (CAD)"
-            currency.contains("CHF") || source.contains("switzerland") || source.contains("swiss national bank") || source.contains("chf") -> "🇨🇭 Swiss Franc (CHF)"
-            currency.contains("NZD") || source.contains("new zealand") || source.contains("reserve bank of new zealand") || source.contains("nzd") -> "🇳🇿 New Zealand Dollar (NZD)"
-            currency.contains("CNY") || currency.contains("CNH") || source.contains("china") || source.contains("people's bank of china") || source.contains("cny") -> "🇨🇳 Chinese Yuan (CNY)"
-            currency.contains("INR") || source.contains("india") || source.contains("reserve bank of india") || source.contains("inr") -> "🇮🇳 Indian Rupee (INR)"
-            currency.contains("BRL") || source.contains("brazil") || source.contains("brl") -> "🇧🇷 Brazilian Real (BRL)"
-            currency.contains("MXN") || source.contains("mexico") || source.contains("mxn") -> "🇲🇽 Mexican Peso (MXN)"
-            source.contains("global") || source.contains("not specified") || source.contains("world") -> "🌐 Global / not specified"
+            currency == "EUR" || country in setOf("eu", "euro area", "eurozone", "euro area (euro)", "european union") ||
+                source.contains("euro area") || source.contains("eurozone") || source.contains("european central bank") ||
+                hasToken(source, "ecb") -> "🇪🇺 Euro (EUR)"
+            currency == "USD" || country in setOf("us", "usa", "u.s.", "u.s.a.", "united states", "united states of america", "america") ||
+                source.contains("united states") || source.contains("united states of america") || source.contains("federal reserve") ||
+                source.contains("nonfarm payroll") || source.contains("non-farm payroll") || source.contains("us dollar") ||
+                hasToken(source, "usa") || hasToken(source, "usd") || hasToken(source, "us") ||
+                source.contains("consumer price index") && (source.contains("cpi") || source.contains("inflation")) -> "🇺🇸 US Dollar (USD)"
+            currency == "JPY" || country in setOf("jp", "jpn", "japan") || source.contains("bank of japan") ||
+                source.contains("japan") || hasToken(source, "jpy") -> "🇯🇵 Japan (JPY)"
+            currency == "GBP" || country in setOf("gb", "gbr", "uk", "united kingdom", "britain", "great britain") ||
+                source.contains("bank of england") || source.contains("united kingdom") || source.contains("britain") || hasToken(source, "gbp") -> "🇬🇧 UK Pound (GBP)"
+            currency == "AUD" || country in setOf("au", "aus", "australia") || source.contains("reserve bank of australia") ||
+                source.contains("australia") || hasToken(source, "aud") -> "🇦🇺 Australian Dollar (AUD)"
+            currency == "CAD" || country in setOf("ca", "can", "canada") || source.contains("bank of canada") ||
+                source.contains("canada") || hasToken(source, "cad") -> "🇨🇦 Canadian Dollar (CAD)"
+            currency == "CHF" || country in setOf("ch", "che", "switzerland") || source.contains("swiss national bank") ||
+                source.contains("switzerland") || hasToken(source, "chf") -> "🇨🇭 Swiss Franc (CHF)"
+            currency == "NZD" || country in setOf("nz", "nzl", "new zealand") || source.contains("reserve bank of new zealand") ||
+                source.contains("new zealand") || hasToken(source, "nzd") -> "🇳🇿 New Zealand Dollar (NZD)"
+            currency in setOf("CNY", "CNH") || country in setOf("cn", "chn", "china") || source.contains("people's bank of china") ||
+                source.contains("china") || hasToken(source, "cny") || hasToken(source, "cnh") -> "🇨🇳 Chinese Yuan (CNY)"
+            currency == "INR" || country in setOf("in", "ind", "india") || source.contains("reserve bank of india") ||
+                source.contains("india") || hasToken(source, "inr") -> "🇮🇳 Indian Rupee (INR)"
+            currency == "BRL" || country in setOf("br", "bra", "brazil") || source.contains("brazil") || hasToken(source, "brl") -> "🇧🇷 Brazilian Real (BRL)"
+            currency == "MXN" || country in setOf("mx", "mex", "mexico") || source.contains("mexico") || hasToken(source, "mxn") -> "🇲🇽 Mexican Peso (MXN)"
+            country in setOf("global", "world", "worldwide", "global / not specified") ||
+                source.contains("global") || source.contains("worldwide") -> "🌐 Global / not specified"
             else -> "🌐 Global / not specified"
         }
     }
