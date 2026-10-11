@@ -189,12 +189,12 @@ class MainActivity : AppCompatActivity() {
         root.addView(scroll, lp(-1, 0).apply { weight = 1f })
 
         // ALERT ACTIVE — deliberately above the clock and given enough height for all text.
-        val status = panel().apply { setPadding(dp(24), dp(22), dp(24), dp(22)) }
+        val status = panel().apply { setPadding(dp(20), dp(16), dp(20), dp(16)) }
         val statusRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val enabled = prefs.getBoolean("enabled", true)
         statusRow.addView(text("●", 22f, if (enabled) green else red).apply {
             gravity = Gravity.CENTER
-        }, lp(42, 84))
+        }, lp(36, 64))
         val statusTexts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
@@ -213,7 +213,7 @@ class MainActivity : AppCompatActivity() {
             scaleX = 1.08f
             scaleY = 1.08f
         }
-        statusRow.addView(sw, lp(76, 72))
+        statusRow.addView(sw, lp(68, 60))
         status.addView(statusRow)
         sw.setOnCheckedChangeListener { _, value ->
             prefs.edit().putBoolean("enabled", value).apply()
@@ -238,7 +238,7 @@ class MainActivity : AppCompatActivity() {
         content.addView(header)
 
         // The clock uses the available content width so it never clips against root padding.
-        val clockSize = resources.displayMetrics.widthPixels - dp(36)
+        val clockSize = minOf(resources.displayMetrics.widthPixels - dp(36), dp(420))
         val clock = AnalogClockView(
             this,
             accent,
@@ -274,7 +274,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(0), dp(2), dp(0), dp(0))
         }
         nextMiniTexts.addView(nextDetailsView)
-        nextMiniRow.addView(nextMiniTexts, lp(0, 66).apply { weight = 1f })
+        nextMiniRow.addView(nextMiniTexts, lp(0, -2).apply { weight = 1f })
         nextMini.addView(nextMiniRow)
         content.addView(nextMini, lp(-1, 82).apply {
             setMargins(dp(0), dp(2), dp(0), dp(18))
@@ -299,14 +299,14 @@ class MainActivity : AppCompatActivity() {
             val box = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(18), dp(14), dp(16), dp(14))
+                setPadding(dp(14), dp(10), dp(12), dp(10))
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(cardColor)
                     cornerRadius = dp(18f)
                     setStroke(1, line)
                 }
                 elevation = dp(1f)
-                minimumHeight = dp(84)
+                minimumHeight = dp(72)
                 isClickable = true
                 setOnClickListener { click() }
             }
@@ -315,9 +315,9 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
             }
             texts.addView(text(labelText, 13f, muted))
-            texts.addView(text(value, 20f).apply {
+            texts.addView(text(value, 18f).apply {
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(dp(0), dp(7), dp(0), dp(0))
+                setPadding(dp(0), dp(4), dp(0), dp(0))
             })
             val quickKind = when (labelText) {
                 "TIMEFRAME" -> "time"
@@ -326,21 +326,21 @@ class MainActivity : AppCompatActivity() {
                 "SLEEP HOURS" -> "time"
                 else -> "market"
             }
-            box.addView(TradingIllustrationView(quickKind, accent), lp(52, 52).apply { setMargins(0, 0, dp(14), 0) })
-            box.addView(texts, lp(0, 60).apply { weight = 1f })
+            box.addView(TradingIllustrationView(quickKind, accent), lp(44, 44).apply { setMargins(0, 0, dp(12), 0) })
+            box.addView(texts, lp(0, -2).apply { weight = 1f })
             box.addView(text("›", 30f, muted).apply { gravity = Gravity.CENTER })
             return box
         }
 
         val sleepSummary = prefs.getString("quiet", "00:00-07:30") ?: "00:00-07:30"
         content.addView(quickControl("TIMEFRAME", tfLabel) { chooseTf() },
-            lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
+            lp(-1, 72).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         content.addView(quickControl("MARKET", market) { chooseMarket() },
             lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
         content.addView(quickControl("ALERT", timingSummary()) { chooseTiming() },
             lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
         content.addView(quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
-            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(20)) })
+            lp(-1, 82).apply { setMargins(dp(0), dp(0), dp(0), dp(16)) })
 
         val navHost = LinearLayout(this).apply { setPadding(dp(18), dp(0), dp(18), dp(8)) }
         addBottom(navHost, "home")
