@@ -125,14 +125,10 @@ object Scheduler {
     private fun marketOpen(epoch: Long, c: Context): Boolean {
         val p = c.getSharedPreferences("prefs", 0)
         val market = p.getInt("market", 0)
-        val z = ZonedDateTime.ofInstant(Instant.ofEpochSecond(epoch), ZoneId.systemDefault())
-        val dow = z.dayOfWeek
-
-        if ((market == 0 || market == 2) &&
-            (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY)
-        ) return false
-
         if (market == 1) return true
+
+        val instant = Instant.ofEpochSecond(epoch)
+        if (!forexWeekOpen(instant)) return false
 
         val selected = p.getStringSet(
             "sessions",
@@ -140,34 +136,18 @@ object Scheduler {
         ) ?: emptySet()
 
         if (selected.isEmpty()) return false
-        return selected.any { sessionOpen(it, z.toInstant()) }
+        return selected.any { TradingSessions.isOpen(it, instant) }
     }
 
-    private fun sessionOpen(s: String, instant: Instant): Boolean {
-        val zone = when (s) {
-            "Sydney" -> "Australia/Sydney"
-            "Tokyo" -> "Asia/Tokyo"
-            "Frankfurt" -> "Europe/Berlin"
-            "London" -> "Europe/London"
-            else -> "America/New_York"
-        }
-
-        val t = ZonedDateTime.ofInstant(instant, ZoneId.of(zone))
-        val m = t.hour * 60 + t.minute
-
-        val ranges = mapOf(
-            "Sydney" to (22 * 60 to 7 * 60),
-            "Tokyo" to (0 to 9 * 60),
-            "Frankfurt" to (7 * 60 to 16 * 60),
-            "London" to (8 * 60 to 17 * 60),
-            "New York" to (13 * 60 to 22 * 60)
-        )
-
-        val r = ranges[s] ?: return false
-        return if (r.first < r.second) {
-            m in r.first until r.second
-        } else {
-            m >= r.first || m < r.second
+    /** Forex trading week: Sunday 17:00 through Friday 17:00 New York time. */
+    private fun forexWeekOpen(instant: Instant): Boolean {
+        val ny = instant.atZone(ZoneId.of("America/New_York"))
+        val time = ny.toLocalTime()
+        return when (ny.dayOfWeek) {
+            DayOfWeek.SATURDAY -> false
+            DayOfWeek.SUNDAY -> !time.isBefore(LocalTime.of(17, 0))
+            DayOfWeek.FRIDAY -> time.isBefore(LocalTime.of(17, 0))
+            else -> true
         }
     }
 
