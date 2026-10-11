@@ -297,7 +297,24 @@ class AnalogClockView(
         return inside
     }
 
-    override fun onTouchEvent(event: MotionEvent): Boolean = false
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action != MotionEvent.ACTION_UP) return true
+        val cx = width / 2f
+        val cy = height / 2f
+        val size = min(width, height).toFloat()
+        val radius = (size / 2f - u(24f)).coerceAtLeast(u(1f))
+        val mapWidth = radius * 1.30f
+        val mapHeight = radius * 0.66f
+        val left = cx - mapWidth / 2f
+        val top = cy - mapHeight / 2f
+        if (event.x < left || event.x > left + mapWidth || event.y < top || event.y > top + mapHeight) return true
+        val lon = ((event.x - left) / mapWidth * 360.0 - 180.0)
+        val lat = 82.0 - ((event.y - top) / mapHeight * 142.0)
+        val point = GeoPoint(lon, lat)
+        val session = sessionCountries.entries.firstOrNull { pointInPolygon(point, it.value) }?.key
+        if (session != null) onSessionToggle(session)
+        return true
+    }
 
     private fun drawHand(canvas: Canvas, cx: Float, cy: Float, length: Float, degrees: Float, width: Float, color: Int) {
         hand.color = color
