@@ -42,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var countdownView: TextView? = null
     private var nextDetailsView: TextView? = null
+    private var computerClockView: TextView? = null
+    private var candleCountdownView: TextView? = null
     private var ticker: Runnable? = null
 
     override fun onCreate(b: Bundle?) {
@@ -240,24 +242,52 @@ class MainActivity : AppCompatActivity() {
             setMargins(dp(0), dp(0), dp(0), dp(4))
         })
 
-        // Next alert stays directly under the clock, but remains compact.
-        val nextMini = panel().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
-        val nextMiniRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val nextMiniTexts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        nextMiniTexts.addView(text("NEXT ALERT", 10f, muted))
-        countdownView = text("Calculating…", 20f, accent).apply {
+        // Compact three-column status strip: device time, candle timer, and next alert.
+        val nextMini = panel().apply { setPadding(dp(8), dp(9), dp(8), dp(9)) }
+        val metricsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        fun metric(title: String, value: TextView): LinearLayout {
+            return LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(3), dp(2), dp(3), dp(2))
+                addView(text(title, 9f, muted).apply { gravity = Gravity.CENTER; maxLines = 1 })
+                addView(value, lp(-1, -2).apply { topMargin = dp(4) })
+            }
+        }
+        computerClockView = text("--:--:--", 13f, textColor).apply {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setPadding(dp(0), dp(3), dp(0), dp(0))
+            gravity = Gravity.CENTER
+            maxLines = 1
+            includeFontPadding = false
         }
-        nextMiniTexts.addView(countdownView)
-        nextDetailsView = text("Checking schedule…", 11f, muted).apply {
-            setPadding(dp(0), dp(2), dp(0), dp(0))
+        candleCountdownView = text("--:--", 13f, accent).apply {
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            maxLines = 1
+            includeFontPadding = false
         }
-        nextMiniTexts.addView(nextDetailsView)
-        nextMiniRow.addView(nextMiniTexts, lp(0, -2).apply { weight = 1f })
-        nextMini.addView(nextMiniRow)
+        countdownView = text("Calculating…", 13f, accent).apply {
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            maxLines = 1
+            includeFontPadding = false
+        }
+        metricsRow.addView(metric("LOCAL TIME", computerClockView!!), lp(0, -2).apply { weight = 1f })
+        val separator1 = divider()
+        metricsRow.addView(separator1, lp(1, 34))
+        metricsRow.addView(metric("CANDLE", candleCountdownView!!), lp(0, -2).apply { weight = 1f })
+        val separator2 = divider()
+        metricsRow.addView(separator2, lp(1, 34))
+        metricsRow.addView(metric("NEXT ALERT", countdownView!!), lp(0, -2).apply { weight = 1.15f })
+        nextMini.addView(metricsRow)
+        nextDetailsView = text("Checking schedule…", 10f, muted).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(0), dp(6), dp(0), dp(0))
+            maxLines = 1
+        }
+        nextMini.addView(nextDetailsView)
         content.addView(nextMini, lp(-1, -2).apply {
-            setMargins(dp(0), dp(2), dp(0), dp(14))
+            setMargins(dp(0), dp(2), dp(0), dp(12))
         })
 
         val tf = prefs.getInt("tf", 60)
@@ -343,6 +373,18 @@ class MainActivity : AppCompatActivity() {
         val run = object : Runnable {
             override fun run() {
                 if (isFinishing) return
+                val instant = java.time.ZonedDateTime.now()
+                computerClockView?.text = String.format(Locale.getDefault(), "%02d:%02d:%02d", instant.hour, instant.minute, instant.second)
+                val tfMinutes = prefs.getInt("tf", 60).coerceAtLeast(1)
+                val marketOpenParts = (prefs.getString("open_market", "00:00") ?: "00:00").split(":")
+                val openHour = marketOpenParts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 0
+                val openMinute = marketOpenParts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+                var anchor = instant.toLocalDate().atTime(openHour, openMinute).atZone(instant.zone)
+                if (instant.isBefore(anchor)) anchor = anchor.minusDays(1)
+                val periodSeconds = tfMinutes * 60L
+                val elapsedSeconds = java.time.Duration.between(anchor, instant).seconds.coerceAtLeast(0L)
+                val candleRemaining = (periodSeconds - (elapsedSeconds % periodSeconds)).coerceIn(0L, periodSeconds)
+                candleCountdownView?.text = String.format(Locale.getDefault(), "%02d:%02d", candleRemaining / 60L, candleRemaining % 60L)
                 val trigger = Scheduler.nextTrigger(this@MainActivity)
                 val now = System.currentTimeMillis() / 1000
                 if (trigger == null) {

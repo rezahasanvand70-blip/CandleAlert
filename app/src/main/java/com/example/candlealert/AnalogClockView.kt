@@ -151,24 +151,7 @@ class AnalogClockView(
         drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
         drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), 0xFFC5A15A.toInt())
 
-        // Digital clock centered beneath the hands, with enough separation for the candle timer.
-        face.style = Paint.Style.FILL
-        face.color = if (darkTheme) 0xFF1B302D.toInt() else 0xFFF1F2E9.toInt()
-        canvas.drawRoundRect(RectF(cx - radius * 0.21f, cy - radius * 0.075f, cx + radius * 0.21f, cy + radius * 0.075f), radius * 0.035f, radius * 0.035f, face)
-        digital.color = primary
-        digital.textSize = radius * 0.082f
-        val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
-        canvas.drawText(timeText, cx, cy - (digital.ascent() + digital.descent()) / 2f, digital)
-
-        center.color = 0xFFC5A15A.toInt()
-        canvas.drawCircle(cx, cy, u(6f), center)
-        canvas.drawCircle(cx, cy, u(2.5f), center)
-
-        // Candle timer is directly below the digital clock, centered on the same axis.
-        digital.color = primary
-        digital.textSize = radius * 0.055f
-        val candleText = formatCandle(candle.remainingSeconds)
-        canvas.drawText("CANDLE  $candleText", cx, cy + radius * 0.125f, digital)
+        // Digital time and candle countdown are shown in the compact strip below the dial.
 
         // Labels use a fixed center point on each band: both angularly and radially.
         labelPaint.textSize = radius * 0.047f
