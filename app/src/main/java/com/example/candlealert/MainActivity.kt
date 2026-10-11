@@ -902,26 +902,84 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
     }
 
+    private fun symbolMark(symbol: String): String {
+        val s = symbol.uppercase(Locale.US)
+        return when {
+            s.contains("XAU") || s.contains("GOLD") -> "Au"
+            s.contains("XAG") || s.contains("SILVER") -> "Ag"
+            s.contains("BTC") -> "₿"
+            s.contains("ETH") -> "◆"
+            s.contains("US30") || s.contains("NAS") || s.contains("SPX") || s.contains("DAX") || s.contains("INDEX") -> "▥"
+            s.contains("OIL") || s.contains("WTI") || s.contains("BRENT") -> "◉"
+            s.length == 6 && s.all { it.isLetter() } -> "↔"
+            else -> s.take(2)
+        }
+    }
+
+    private fun symbolMarkColor(symbol: String): Int {
+        val s = symbol.uppercase(Locale.US)
+        return when {
+            s.contains("XAU") || s.contains("GOLD") -> Color.rgb(177, 132, 43)
+            s.contains("XAG") || s.contains("SILVER") -> Color.rgb(112, 128, 142)
+            s.contains("BTC") || s.contains("ETH") -> Color.rgb(205, 126, 48)
+            s.contains("OIL") || s.contains("WTI") || s.contains("BRENT") -> Color.rgb(79, 96, 103)
+            s.contains("US30") || s.contains("NAS") || s.contains("SPX") || s.contains("DAX") || s.contains("INDEX") -> Color.rgb(69, 111, 155)
+            else -> accent
+        }
+    }
+
     private fun journalTradeCard(parent: LinearLayout, t: JournalTrade) {
         val isOpen = t.exitTime == null
         val c = panel().apply {
-            setBackgroundColor(if (isOpen) {
-                if (darkMode) Color.rgb(31, 42, 48) else Color.rgb(244, 249, 253)
-            } else cardColor)
+            setBackgroundColor(cardColor)
+            setPadding(dp(14), dp(14), dp(14), dp(12))
         }
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val mark = TextView(this).apply {
+            text = symbolMark(t.symbol)
+            gravity = Gravity.CENTER
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(symbolMarkColor(t.symbol))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(14f)
+                setColor(if (darkMode) Color.rgb(37, 54, 52) else Color.rgb(238, 244, 238))
+                setStroke(dp(1), line)
+            }
+        }
+        row.addView(mark, lp(48, 48).apply { setMargins(0, 0, dp(12), 0) })
         val title = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        title.addView(text(t.symbol + "  •  " + t.direction, 18f).apply { typeface = Typeface.DEFAULT_BOLD })
+        title.addView(text(t.symbol, 17f).apply { typeface = Typeface.DEFAULT_BOLD })
         title.addView(text("Entry " + journalDate(t.entryTime), 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
         if (t.exitTime != null) {
             title.addView(text("Duration " + journalDuration(t.entryTime, t.exitTime!!), 11f, accent).apply {
                 setPadding(dp(0), dp(3), dp(0), dp(0))
             })
         }
-        row.addView(title, lp(0, 56).apply { weight = 1f })
-        row.addView(text(if (isOpen) "OPEN" else "CLOSED", 11f, if (isOpen) accent else muted).apply {
+        row.addView(title, lp(0, -2).apply { weight = 1f })
+        val badgeRow = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        val directionColor = if (t.direction == "BUY") green else red
+        badgeRow.addView(TextView(this).apply {
+            text = if (t.direction == "BUY") "↑  BUY" else "↓  SELL"
+            textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(directionColor)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(14f)
+                setColor(if (t.direction == "BUY") Color.rgb(226, 242, 234) else Color.rgb(250, 233, 230))
+            }
         })
+        badgeRow.addView(TextView(this).apply {
+            text = if (isOpen) "● OPEN" else "■ CLOSED"
+            textSize = 10f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(if (isOpen) green else muted)
+            setPadding(dp(4), dp(6), dp(4), 0)
+        })
+        row.addView(badgeRow, lp(-2, -2).apply { setMargins(dp(8), 0, 0, 0) })
         c.addView(row)
         c.addView(text(
             "Entry " + t.entry.ifBlank { "—" } +
