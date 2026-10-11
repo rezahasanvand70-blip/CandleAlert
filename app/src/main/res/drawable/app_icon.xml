@@ -5,32 +5,57 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- High-contrast clock face, kept within the adaptive icon safe area. -->
-    <path android:fillColor="#27E0AE"
-        android:pathData="M54,20a34,34 0 1,0 0,68a34,34 0 1,0 0,-68z" />
-    <path android:fillColor="#102A27"
-        android:pathData="M54,25a29,29 0 1,0 0,58a29,29 0 1,0 0,-58z" />
+    <!-- Deep teal night sky -->
+    <path android:fillColor="#071B27"
+        android:pathData="M0,0h108v108H0z" />
 
-    <!-- Hour marks -->
-    <path android:strokeColor="#8DEBD0" android:strokeWidth="2.5" android:strokeLineCap="round"
-        android:pathData="M54,28v5 M54,75v5 M28,54h5 M75,54h5" />
-    <path android:strokeColor="#8DEBD0" android:strokeWidth="1.8" android:strokeLineCap="round"
-        android:pathData="M35,35l3.5,3.5 M69.5,69.5L73,73 M73,35l-3.5,3.5 M38.5,69.5L35,73" />
+    <!-- Soft layered glow around the mountain horizon -->
+    <path android:fillColor="#123C42"
+        android:pathData="M8,60 C18,47 28,48 39,58 C49,42 63,39 76,53 C86,43 97,47 104,56 V94 H8 Z" />
+    <path android:fillColor="#0C2B36"
+        android:pathData="M0,75 L18,57 L29,68 L47,43 L65,66 L82,49 L108,70 V108 H0 Z" />
+    <path android:fillColor="#102F3B"
+        android:pathData="M0,84 L18,69 L31,78 L50,57 L67,76 L85,61 L108,79 V108 H0 Z" />
+    <path android:fillColor="#071923"
+        android:pathData="M0,94 L21,81 L36,89 L55,73 L73,88 L91,75 L108,87 V108 H0 Z" />
 
-    <!-- Candlesticks inside the clock face -->
-    <path android:strokeColor="#27E0AE" android:strokeWidth="3" android:strokeLineCap="round"
-        android:pathData="M39,39v22" />
-    <path android:fillColor="#27E0AE" android:pathData="M34,44h10v11H34z" />
-    <path android:strokeColor="#FF6474" android:strokeWidth="3" android:strokeLineCap="round"
-        android:pathData="M53,31v30" />
-    <path android:fillColor="#FF6474" android:pathData="M48,37h10v16H48z" />
-    <path android:strokeColor="#27E0AE" android:strokeWidth="3" android:strokeLineCap="round"
-        android:pathData="M67,35v21" />
-    <path android:fillColor="#27E0AE" android:pathData="M62,42h10v10H62z" />
+    <!-- Luminous circular halo: layered strokes create a soft neon aura -->
+    <path android:strokeColor="#163E45" android:strokeWidth="10" android:strokeLineCap="round"
+        android:pathData="M22,66 A32,32 0 0,1 82,49" />
+    <path android:strokeColor="#176D68" android:strokeWidth="6" android:strokeLineCap="round"
+        android:pathData="M22,66 A32,32 0 0,1 82,49" />
+    <path android:strokeColor="#36E5B0" android:strokeWidth="2.6" android:strokeLineCap="round"
+        android:pathData="M22,66 A32,32 0 0,1 82,49" />
+    <path android:strokeColor="#E7E9C9" android:strokeWidth="2.3" android:strokeLineCap="round"
+        android:pathData="M82,49 A32,32 0 0,1 84,67" />
+    <path android:strokeColor="#8DD9B7" android:strokeWidth="1.1" android:strokeLineCap="round"
+        android:pathData="M82,49 A32,32 0 0,1 84,67" />
 
-    <!-- Notification bell, distinct from the candle chart -->
-    <path android:fillColor="#FFFFFF"
-        android:pathData="M67,67c0,-5 2,-8 5,-10v-3c0,-2 1.5,-3.5 3.5,-3.5S79,52 79,54v3c3,2 5,5 5,10v4h2v3H63v-3h4z" />
-    <path android:fillColor="#F5C76A"
-        android:pathData="M72,77h7c0,3 -1.5,4.5 -3.5,4.5S72,80 72,77z" />
+    <!-- Trading candles integrated with the mountain landscape -->
+    <path android:strokeColor="#00D995" android:strokeWidth="2.4" android:strokeLineCap="round"
+        android:pathData="M29,47 V78" />
+    <path android:fillColor="#05D991"
+        android:pathData="M25,55 H33 V70 H25 Z" />
+    <path android:strokeColor="#FF625F" android:strokeWidth="2.4" android:strokeLineCap="round"
+        android:pathData="M43,53 V82" />
+    <path android:fillColor="#FF514F"
+        android:pathData="M39,60 H47 V74 H39 Z" />
+    <path android:strokeColor="#16E3A0" android:strokeWidth="2.6" android:strokeLineCap="round"
+        android:pathData="M57,39 V69" />
+    <path android:fillColor="#14D99A"
+        android:pathData="M52.5,46 H61.5 V62 H52.5 Z" />
+    <path android:strokeColor="#55F0BD" android:strokeWidth="0.8"
+        android:pathData="M26,56 H32 M40,61 H46 M53.5,47 H60.5" />
+
+    <!-- Small luminous horizon accents -->
+    <path android:strokeColor="#6DD7B7" android:strokeWidth="1.1" android:strokeLineCap="round"
+        android:pathData="M13,91 Q29,84 42,91 M69,91 Q83,83 96,89" />
+
+    <!-- White alert bell, clear at launcher-icon size -->
+    <path android:fillColor="#F7FCF9"
+        android:pathData="M69,72 C69,66 71,62 75,60 V57.5 C75,55.5 76.4,54 78.3,54 C80.2,54 81.5,55.5 81.5,57.5 V60 C85.2,62.3 87,66.1 87,72 V75 H89 V78 H67 V75 H69 Z" />
+    <path android:fillColor="#D7F6E9"
+        android:pathData="M75,80 H82 C81.6,83 80.3,84.5 78.5,84.5 C76.7,84.5 75.4,83 75,80 Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="1.4" android:strokeLineCap="round"
+        android:pathData="M65,64 Q61,69 63,74 M91,64 Q95,69 93,74" />
 </vector>
