@@ -29,15 +29,15 @@ class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
 
     private val darkMode get() = when (prefs.getString("theme_mode", "light")) { "dark" -> true; "system" -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
-    private val bg get() = if (darkMode) Color.rgb(18, 22, 28) else Color.rgb(244, 242, 248)
+    private val bg get() = if (darkMode) Color.rgb(17, 27, 29) else Color.rgb(245, 244, 239)
     private val cardColor get() = if (darkMode) Color.rgb(28, 34, 42) else Color.WHITE
-    private val soft get() = if (darkMode) Color.rgb(36, 43, 53) else Color.rgb(249, 246, 238)
-    private val accent get() = Color.parseColor(prefs.getString("theme_accent", "#B28A2A") ?: "#B28A2A")
-    private val green = Color.rgb(25, 171, 111)
-    private val red = Color.rgb(220, 75, 88)
-    private val textColor get() = if (darkMode) Color.rgb(241, 245, 249) else Color.rgb(24, 32, 43)
-    private val muted get() = if (darkMode) Color.rgb(166, 177, 190) else Color.rgb(105, 116, 130)
-    private val line get() = if (darkMode) Color.rgb(55, 64, 76) else Color.rgb(235, 232, 239)
+    private val soft get() = if (darkMode) Color.rgb(30, 49, 48) else Color.rgb(229, 240, 235)
+    private val accent get() = Color.parseColor(prefs.getString("theme_accent", "#176B63") ?: "#176B63")
+    private val green = Color.rgb(22, 132, 96)
+    private val red = Color.rgb(194, 76, 72)
+    private val textColor get() = if (darkMode) Color.rgb(237, 243, 240) else Color.rgb(30, 42, 40)
+    private val muted get() = if (darkMode) Color.rgb(161, 179, 174) else Color.rgb(112, 124, 120)
+    private val line get() = if (darkMode) Color.rgb(49, 69, 66) else Color.rgb(226, 230, 224)
 
     private val handler = Handler(Looper.getMainLooper())
     private var countdownView: TextView? = null
@@ -75,12 +75,10 @@ class MainActivity : AppCompatActivity() {
         if (!prefs.contains("offset")) e.putInt("offset", 0)
         if (!prefs.contains("open_market")) e.putString("open_market", "00:00")
         if (!prefs.contains("theme_mode")) e.putString("theme_mode", "light")
-        if (!prefs.contains("theme_accent")) e.putString("theme_accent", "#B28A2A")
+        if (!prefs.contains("theme_accent")) e.putString("theme_accent", "#176B63")
+        val oldAccent = prefs.getString("theme_accent", "")
+        if (oldAccent == "#1677FF" || oldAccent == "#B28A2A") e.putString("theme_accent", "#176B63")
         e.apply()
-
-        if (prefs.getString("theme_accent", "#B28A2A") == "#1677FF") {
-            e.putString("theme_accent", "#B28A2A")
-        }
 
         val migrated = prefs.getBoolean("defaults_migrated_v3", false)
         if (!migrated) {
