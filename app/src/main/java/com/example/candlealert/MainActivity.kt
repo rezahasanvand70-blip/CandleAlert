@@ -480,7 +480,7 @@ class MainActivity : AppCompatActivity() {
             }
             elevation = dp(2f)
         }
-        val items = listOf("Home" to 0, "Journal" to android.R.drawable.ic_menu_edit, "Economic Calendar" to android.R.drawable.ic_menu_today, "Settings" to android.R.drawable.ic_menu_preferences)
+        val items = listOf("Home" to 0, "Journal" to android.R.drawable.ic_menu_edit, "News" to android.R.drawable.ic_menu_today, "Settings" to android.R.drawable.ic_menu_preferences)
         items.forEach { pair ->
             val name = pair.first
             val selected = active == name.lowercase()
@@ -497,7 +497,7 @@ class MainActivity : AppCompatActivity() {
                     when (name) {
                         "Home" -> showHome()
                         "Journal" -> showJournal()
-                        "Economic Calendar" -> showEconomicCalendar()
+                        "News" -> showEconomicCalendar()
                         "Settings" -> showSettings()
                     }
                 }
@@ -1674,7 +1674,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(18), dp(18), dp(18), dp(0))
             setBackgroundColor(bg)
         }
-        root.addView(text("Economic Calendar", 23f).apply { typeface = Typeface.DEFAULT_BOLD })
+        root.addView(text("News", 23f).apply { typeface = Typeface.DEFAULT_BOLD })
         root.addView(text("Scheduled market-moving releases • times in ${java.time.ZoneId.systemDefault().id}", 12f, muted).apply {
             setPadding(0, dp(4), 0, dp(12))
         })
@@ -1714,7 +1714,7 @@ class MainActivity : AppCompatActivity() {
         }
         controls.addView(countrySpinner, lp(-1, 48))
         root.addView(controls, lp(-1, -2))
-        root.addView(smallButton(if (economicLoading) "Updating calendar…" else "↻  Refresh calendar", true).apply {
+        root.addView(smallButton(if (economicLoading) "Updating news…" else "↻  Refresh news", true).apply {
             isEnabled = !economicLoading
             setOnClickListener { showEconomicCalendar(refresh = true) }
         }, lp(-1, 46).apply { setMargins(0, dp(6), 0, dp(8)) })
@@ -1723,7 +1723,7 @@ class MainActivity : AppCompatActivity() {
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         if (economicLoading && economicEvents.isEmpty()) {
             content.addView(panel().apply {
-                addView(text("Loading economic events…", 15f).apply { gravity = Gravity.CENTER })
+                addView(text("Loading news…", 15f).apply { gravity = Gravity.CENTER })
                 addView(text("Fetching the free calendar feed.", 12f, muted).apply { gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0) })
             }, lp(-1, 110).apply { setMargins(0, dp(6), 0, dp(8)) })
         } else if (economicError != null && economicEvents.isEmpty()) {
@@ -1817,7 +1817,7 @@ class MainActivity : AppCompatActivity() {
         scroll.addView(content)
         root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         val navHost = LinearLayout(this).apply { setPadding(dp(18), dp(0), dp(18), dp(8)) }
-        addBottom(navHost, "economic calendar")
+        addBottom(navHost, "news")
         root.addView(navHost)
         setContentView(root)
     }
