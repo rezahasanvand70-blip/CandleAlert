@@ -78,6 +78,10 @@ class MainActivity : AppCompatActivity() {
         if (!prefs.contains("theme_accent")) e.putString("theme_accent", "#B28A2A")
         e.apply()
 
+        if (prefs.getString("theme_accent", "#B28A2A") == "#1677FF") {
+            e.putString("theme_accent", "#B28A2A")
+        }
+
         val migrated = prefs.getBoolean("defaults_migrated_v3", false)
         if (!migrated) {
             val symbol = prefs.getString("symbol", "XAUUSD") ?: "XAUUSD"
@@ -151,10 +155,10 @@ class MainActivity : AppCompatActivity() {
         setPadding(dp(16), dp(14), dp(16), dp(14))
         background = android.graphics.drawable.GradientDrawable().apply {
             setColor(cardColor)
-            cornerRadius = dp(18f)
+            cornerRadius = dp(20f)
             setStroke(1, line)
         }
-        elevation = dp(1f)
+        elevation = dp(3f)
     }
 
     private fun smallButton(s: String, selected: Boolean = false) = TextView(this).apply {
@@ -393,7 +397,7 @@ class MainActivity : AppCompatActivity() {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(5), dp(5), dp(5), dp(5))
+            setPadding(dp(4), dp(4), dp(4), dp(4))
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(cardColor)
                 cornerRadius = dp(24f)
@@ -408,12 +412,12 @@ class MainActivity : AppCompatActivity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(6), dp(5), dp(6), dp(5))
+                setPadding(dp(4), dp(3), dp(4), dp(3))
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(if (selected) Color.rgb(246, 237, 207) else cardColor)
                     cornerRadius = dp(18f)
                 }
-                minimumHeight = dp(58)
+                minimumHeight = dp(54)
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
@@ -427,15 +431,15 @@ class MainActivity : AppCompatActivity() {
                 setColorFilter(if (selected) accent else muted)
                 setPadding(dp(4), dp(3), dp(4), dp(1))
             }
-            item.addView(icon, lp(44, 38))
+            item.addView(icon, lp(28, 28))
             item.addView(text(name, 13f, if (selected) accent else muted).apply {
                 gravity = Gravity.CENTER
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(dp(0), dp(3), dp(0), dp(0))
             })
-            nav.addView(item, lp(0, 90).apply { weight = 1f; setMargins(dp(5), dp(0), dp(5), dp(0)) })
+            nav.addView(item, lp(0, 58).apply { weight = 1f; setMargins(dp(3), dp(0), dp(3), dp(0)) })
         }
-        root.addView(nav, lp(-1, 76))
+        root.addView(nav, lp(-1, 66))
     }
 
 
