@@ -29,15 +29,15 @@ class MainActivity : AppCompatActivity() {
     private val prefs by lazy { getSharedPreferences("prefs", 0) }
 
     private val darkMode get() = when (prefs.getString("theme_mode", "light")) { "dark" -> true; "system" -> (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
-    private val bg get() = if (darkMode) Color.rgb(18, 22, 28) else Color.rgb(247, 249, 252)
+    private val bg get() = if (darkMode) Color.rgb(18, 22, 28) else Color.rgb(244, 242, 248)
     private val cardColor get() = if (darkMode) Color.rgb(28, 34, 42) else Color.WHITE
-    private val soft get() = if (darkMode) Color.rgb(36, 43, 53) else Color.rgb(242, 246, 250)
-    private val accent get() = Color.parseColor(prefs.getString("theme_accent", "#1677FF") ?: "#1677FF")
+    private val soft get() = if (darkMode) Color.rgb(36, 43, 53) else Color.rgb(249, 246, 238)
+    private val accent get() = Color.parseColor(prefs.getString("theme_accent", "#B28A2A") ?: "#B28A2A")
     private val green = Color.rgb(25, 171, 111)
     private val red = Color.rgb(220, 75, 88)
     private val textColor get() = if (darkMode) Color.rgb(241, 245, 249) else Color.rgb(24, 32, 43)
     private val muted get() = if (darkMode) Color.rgb(166, 177, 190) else Color.rgb(105, 116, 130)
-    private val line get() = if (darkMode) Color.rgb(55, 64, 76) else Color.rgb(224, 229, 236)
+    private val line get() = if (darkMode) Color.rgb(55, 64, 76) else Color.rgb(235, 232, 239)
 
     private val handler = Handler(Looper.getMainLooper())
     private var countdownView: TextView? = null
@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         if (!prefs.contains("offset")) e.putInt("offset", 0)
         if (!prefs.contains("open_market")) e.putString("open_market", "00:00")
         if (!prefs.contains("theme_mode")) e.putString("theme_mode", "light")
-        if (!prefs.contains("theme_accent")) e.putString("theme_accent", "#1677FF")
+        if (!prefs.contains("theme_accent")) e.putString("theme_accent", "#B28A2A")
         e.apply()
 
         val migrated = prefs.getBoolean("defaults_migrated_v3", false)
@@ -393,7 +393,7 @@ class MainActivity : AppCompatActivity() {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(6), dp(6), dp(6), dp(6))
+            setPadding(dp(5), dp(5), dp(5), dp(5))
             background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(cardColor)
                 cornerRadius = dp(24f)
@@ -408,12 +408,12 @@ class MainActivity : AppCompatActivity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(8), dp(7), dp(8), dp(7))
+                setPadding(dp(6), dp(5), dp(6), dp(5))
                 background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(if (selected) Color.rgb(235, 243, 255) else cardColor)
+                    setColor(if (selected) Color.rgb(246, 237, 207) else cardColor)
                     cornerRadius = dp(18f)
                 }
-                minimumHeight = dp(66)
+                minimumHeight = dp(58)
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
@@ -427,7 +427,7 @@ class MainActivity : AppCompatActivity() {
                 setColorFilter(if (selected) accent else muted)
                 setPadding(dp(4), dp(3), dp(4), dp(1))
             }
-            item.addView(icon, lp(50, 44))
+            item.addView(icon, lp(44, 38))
             item.addView(text(name, 13f, if (selected) accent else muted).apply {
                 gravity = Gravity.CENTER
                 typeface = Typeface.DEFAULT_BOLD
