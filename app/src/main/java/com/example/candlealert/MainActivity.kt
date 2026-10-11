@@ -228,7 +228,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(0), dp(0), dp(0), dp(2))
         }
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titleBox.addView(text("Candle Alert", 25f))
+        titleBox.addView(text("Candle Alert", 22f))
         titleBox.addView(text("Candle-close notifications", 12f, muted).apply {
             setPadding(dp(0), dp(4), dp(0), dp(0))
         })
@@ -297,14 +297,14 @@ class MainActivity : AppCompatActivity() {
             val box = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(24), dp(20), dp(22), dp(20))
+                setPadding(dp(18), dp(14), dp(16), dp(14))
                 background = android.graphics.drawable.GradientDrawable().apply {
                     setColor(cardColor)
                     cornerRadius = dp(18f)
                     setStroke(1, line)
                 }
                 elevation = dp(1f)
-                minimumHeight = dp(118)
+                minimumHeight = dp(84)
                 isClickable = true
                 setOnClickListener { click() }
             }
@@ -313,22 +313,22 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
             }
             texts.addView(text(labelText, 13f, muted))
-            texts.addView(text(value, 23f).apply {
+            texts.addView(text(value, 20f).apply {
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(dp(0), dp(7), dp(0), dp(0))
             })
-            box.addView(texts, lp(0, 88).apply { weight = 1f })
+            box.addView(texts, lp(0, 60).apply { weight = 1f })
             box.addView(text("›", 30f, muted).apply { gravity = Gravity.CENTER })
             return box
         }
 
         val sleepSummary = prefs.getString("quiet", "00:00-07:30") ?: "00:00-07:30"
         content.addView(quickControl("TIMEFRAME", tfLabel) { chooseTf() },
-            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
+            lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
         content.addView(quickControl("MARKET", market) { chooseMarket() },
-            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
+            lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
         content.addView(quickControl("ALERT", timingSummary()) { chooseTiming() },
-            lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(12)) })
+            lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
         content.addView(quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
             lp(-1, 118).apply { setMargins(dp(0), dp(0), dp(0), dp(20)) })
 
@@ -413,7 +413,7 @@ class MainActivity : AppCompatActivity() {
                     setColor(if (selected) Color.rgb(235, 243, 255) else cardColor)
                     cornerRadius = dp(18f)
                 }
-                minimumHeight = dp(88)
+                minimumHeight = dp(66)
                 setOnClickListener {
                     when (name) {
                         "Home" -> showHome()
@@ -435,7 +435,7 @@ class MainActivity : AppCompatActivity() {
             })
             nav.addView(item, lp(0, 90).apply { weight = 1f; setMargins(dp(5), dp(0), dp(5), dp(0)) })
         }
-        root.addView(nav, lp(-1, 100))
+        root.addView(nav, lp(-1, 76))
     }
 
 
@@ -613,7 +613,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showGoogleSheetsSettings() {
         val root = base()
-        root.addView(text("Google Sheets", 28f))
+        root.addView(text("Google Sheets", 23f))
         root.addView(text("Keep your Journal in your personal Google Sheet so the data survives app replacement or deletion.", 14f, muted).apply {
             setPadding(dp(0), dp(4), dp(0), dp(14))
         })
@@ -718,7 +718,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showJournal() {
         val root = base()
-        root.addView(text("Journal", 28f))
+        root.addView(text("Journal", 23f))
         root.addView(text("Record, review and close trades step by step.", 13f, muted).apply {
             setPadding(dp(0), dp(4), dp(0), dp(12))
         })
@@ -1383,7 +1383,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSettings() {
         val root = base()
-        root.addView(text("Settings", 28f))
+        root.addView(text("Settings", 23f))
         root.addView(text("Configure how Candle Alert behaves", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
 
         val scroll = ScrollView(this)
@@ -1420,7 +1420,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            content.addView(c, lp(-1, 92).apply { setMargins(dp(0), dp(5), dp(0), dp(5)) })
+            content.addView(c, lp(-1, 76).apply { setMargins(dp(0), dp(4), dp(0), dp(4)) })
         }
         scroll.addView(content)
         root.addView(scroll, lp(-1, 0).apply { weight = 1f })
@@ -1542,7 +1542,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSessions() {
         val root = base()
-        root.addView(text("Trading Sessions", 28f))
+        root.addView(text("Trading Sessions", 23f))
         root.addView(text("Select the Forex sessions used for alerts.", 14f, muted).apply {
             setPadding(dp(0), dp(4), dp(0), dp(12))
         })
@@ -1594,7 +1594,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showThemeSettings() {
         val root = base()
-        root.addView(text("Theme", 28f))
+        root.addView(text("Theme", 23f))
         root.addView(text("Choose light, dark, or your phone's system theme.", 14f, muted).apply {
             setPadding(dp(0), dp(4), dp(0), dp(14))
         })
@@ -1642,7 +1642,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun chooseNotificationApp() {
         val root = base()
-        root.addView(text("Notification App", 28f))
+        root.addView(text("Notification App", 23f))
         root.addView(text("Choose which installed trading app opens when an alert arrives.", 14f, muted).apply {
             setPadding(dp(0), dp(4), dp(0), dp(12))
         })
@@ -1726,7 +1726,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showInstalledAppsPicker() {
         val root = base()
-        root.addView(text("Add Installed App", 28f))
+        root.addView(text("Add Installed App", 23f))
         root.addView(text("Select an app to add it to the notification list.", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
         val pm = packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
