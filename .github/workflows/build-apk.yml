@@ -2,7 +2,7 @@ name: Build APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, feature-pixel-world-session-map ]
 jobs:
   build:
     runs-on: ubuntu-latest
