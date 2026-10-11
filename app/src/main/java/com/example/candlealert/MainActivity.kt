@@ -272,7 +272,9 @@ class MainActivity : AppCompatActivity() {
             maxLines = 1
             includeFontPadding = false
         }
-        metricsRow.addView(metric("LOCAL TIME", computerClockView!!), lp(0, -2).apply { weight = 1f })
+        val displayZone = TradingSessions.displayZone(this)
+        val clockTitle = if (prefs.getString("clock_timezone", null).isNullOrBlank()) "LOCAL TIME" else "TIME • ${displayZone.id.substringAfterLast('/')}"
+        metricsRow.addView(metric(clockTitle, computerClockView!!), lp(0, -2).apply { weight = 1f })
         val separator1 = divider()
         metricsRow.addView(separator1, lp(1, 34))
         metricsRow.addView(metric("CANDLE", candleCountdownView!!), lp(0, -2).apply { weight = 1f })
@@ -373,7 +375,7 @@ class MainActivity : AppCompatActivity() {
         val run = object : Runnable {
             override fun run() {
                 if (isFinishing) return
-                val instant = java.time.ZonedDateTime.now()
+                val instant = java.time.ZonedDateTime.now(TradingSessions.displayZone(this@MainActivity))
                 computerClockView?.text = String.format(Locale.getDefault(), "%02d:%02d:%02d", instant.hour, instant.minute, instant.second)
                 val tfMinutes = prefs.getInt("tf", 60).coerceAtLeast(1)
                 val marketOpenParts = (prefs.getString("open_market", "00:00") ?: "00:00").split(":")
@@ -1664,6 +1666,7 @@ class MainActivity : AppCompatActivity() {
         val options = listOf(
             Triple("Open Market", "Broker candle starts at $openMarketValue", "market"),
             Triple("Theme", themeValue, "settings"),
+            Triple("Clock Time Zone", clockTimeZoneSummary(), "time"),
             Triple("Google Sheets Journal", sheetValue, "index"),
             Triple("Open App on Notification", appValue, "forex"),
             Triple("Exact Alarm Permission", alarmValue, "time")
@@ -1696,6 +1699,7 @@ class MainActivity : AppCompatActivity() {
                 when (titleText) {
                     "Open Market" -> chooseOpenMarket()
                     "Theme" -> showThemeSettings()
+                    "Clock Time Zone" -> showTimeZoneSettings()
                     "Google Sheets Journal" -> showGoogleSheetsSettings()
                     "Open App on Notification" -> chooseNotificationApp()
                     "Exact Alarm Permission" -> if (android.os.Build.VERSION.SDK_INT >= 31) {
@@ -1711,6 +1715,152 @@ class MainActivity : AppCompatActivity() {
         root.addView(scroll, lp(-1, 0).apply { weight = 1f })
         addBottom(root, "settings")
         setContentView(root)
+    }
+
+    private fun clockTimeZoneSummary(): String {
+        val zone = TradingSessions.displayZone(this)
+        val source = if (prefs.getString("clock_timezone", null).isNullOrBlank()) "Follow phone" else "Manual"
+        return "$source • ${TradingSessions.zoneLabel(zone)}"
+    }
+
+    private fun showTimeZoneSettings() {
+        val root = base()
+        root.addView(text("Local Time Zone", 23f))
+        root.addView(text("Choose the time zone used by the clock and session rings. Session boundaries are converted through UTC using the rules for each market.", 14f, muted).apply {
+            setPadding(dp(0), dp(4), dp(0), dp(12))
+        })
+
+        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(0), dp(0), dp(0), dp(12))
+        }
+        scroll.addView(content)
+
+        val automatic = prefs.getString("clock_timezone", null).isNullOrBlank()
+        val autoCard = panel().apply { setPadding(dp(14), dp(10), dp(12), dp(10)) }
+        val autoRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val autoText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(text("Follow phone time zone", 15f).apply { typeface = Typeface.DEFAULT_BOLD })
+            addView(text("Recommended • updates when the phone's zone changes", 11f, muted).apply {
+                setPadding(0, dp(3), 0, 0)
+            })
+        }
+        autoRow.addView(autoText, lp(0, -2).apply { weight = 1f })
+        val autoSwitch = Switch(this).apply { isChecked = automatic }
+        autoRow.addView(autoSwitch, lp(56, 48))
+        autoCard.addView(autoRow)
+        autoSwitch.setOnCheckedChangeListener { _, checked ->
+            val edit = prefs.edit()
+            if (checked) edit.remove("clock_timezone")
+            else edit.putString("clock_timezone", java.time.ZoneId.systemDefault().id)
+            edit.apply()
+            showTimeZoneSettings()
+        }
+        content.addView(autoCard, lp(-1, -2).apply { setMargins(0, dp(3), 0, dp(6)) })
+
+        val selectedZone = TradingSessions.displayZone(this)
+        val zoneCard = panel().apply { setPadding(dp(14), dp(12), dp(14), dp(12)) }
+        zoneCard.addView(text("Current display zone", 12f, muted))
+        zoneCard.addView(text(TradingSessions.zoneLabel(selectedZone), 16f).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(5), 0, dp(3))
+        })
+        zoneCard.addView(text(if (automatic) "Source: phone settings" else "Source: manually selected", 11f, muted))
+        content.addView(zoneCard, lp(-1, -2).apply { setMargins(0, dp(3), 0, dp(6)) })
+
+        val chooseCard = panel().apply { setPadding(dp(14), dp(12), dp(12), dp(12)) }
+        val chooseRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val chooseText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(text("Choose a time zone", 15f).apply { typeface = Typeface.DEFAULT_BOLD })
+            addView(text(if (automatic) "Select a zone to use a manual override" else "Tap to change the selected zone", 11f, muted).apply {
+                setPadding(0, dp(3), 0, 0)
+            })
+        }
+        chooseRow.addView(chooseText, lp(0, -2).apply { weight = 1f })
+        chooseRow.addView(text("›", 25f, accent).apply { gravity = Gravity.CENTER })
+        chooseCard.addView(chooseRow)
+        chooseCard.setOnClickListener { chooseClockTimeZone() }
+        content.addView(chooseCard, lp(-1, -2).apply { setMargins(0, dp(3), 0, dp(8)) })
+
+        val sourceCard = panel().apply { setPadding(dp(14), dp(12), dp(14), dp(12)) }
+        sourceCard.addView(text("Time-zone rules", 14f).apply { typeface = Typeface.DEFAULT_BOLD })
+        sourceCard.addView(text("Uses the IANA time-zone rules supplied by Android, not a fixed UTC offset. Daylight-saving and legal time changes are applied when the device's time-zone data is updated. This feature does not require location permission or a live internet connection.", 12f, muted).apply {
+            setPadding(0, dp(5), 0, dp(8))
+        })
+        sourceCard.addView(text("IANA Time Zone Database ↗", 12f, accent).apply { typeface = Typeface.DEFAULT_BOLD })
+        sourceCard.setOnClickListener {
+            runCatching {
+                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.iana.org/time-zones")))
+            }.onFailure {
+                Toast.makeText(this, "Unable to open the time-zone information page.", Toast.LENGTH_SHORT).show()
+            }
+        }
+        content.addView(sourceCard, lp(-1, -2).apply { setMargins(0, dp(3), 0, dp(8)) })
+
+        content.addView(text("Broker candle alignment, quiet hours, and Android alarm delivery continue to use the phone's own time zone.", 11f, muted).apply {
+            setPadding(dp(3), dp(4), dp(3), dp(8))
+        })
+        root.addView(scroll, lp(-1, 0).apply { weight = 1f })
+        root.addView(smallButton("Done", true).apply {
+            setOnClickListener { showSettings() }
+        }, lp(-1, 50).apply { setMargins(0, dp(8), 0, dp(8)) })
+        addBottom(root, "settings")
+        setContentView(root)
+    }
+
+    private fun chooseClockTimeZone() {
+        data class TimeZoneChoice(val id: String, val label: String) {
+            override fun toString(): String = label
+        }
+
+        val now = java.time.Instant.now()
+        val choices = (java.time.ZoneId.getAvailableZoneIds() + "UTC").distinct().sorted().map { id ->
+            val zone = java.time.ZoneId.of(id)
+            TimeZoneChoice(id, TradingSessions.zoneLabel(zone, now))
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(6), dp(12), dp(4))
+        }
+        val search = EditText(this).apply {
+            hint = "Search city or zone, e.g. Tehran"
+            singleLine = true
+            textSize = 15f
+        }
+        val list = ListView(this).apply {
+            dividerHeight = dp(1)
+            choiceMode = ListView.CHOICE_MODE_SINGLE
+        }
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, choices)
+        list.adapter = adapter
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                adapter.filter.filter(s)
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+        box.addView(search, lp(-1, 52))
+        box.addView(list, lp(-1, 350))
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Choose time zone")
+            .setView(box)
+            .setNegativeButton("Cancel", null)
+            .setNeutralButton("Use phone time zone") { _, _ ->
+                prefs.edit().remove("clock_timezone").apply()
+                showTimeZoneSettings()
+            }
+            .create()
+        list.setOnItemClickListener { _, _, position, _ ->
+            val chosen = adapter.getItem(position) ?: return@setOnItemClickListener
+            prefs.edit().putString("clock_timezone", chosen.id).apply()
+            dialog.dismiss()
+            showTimeZoneSettings()
+        }
+        dialog.show()
     }
 
     private fun wheelDialog(title: String, values: List<String>, selected: Int, onSelected: (Int) -> Unit) {
