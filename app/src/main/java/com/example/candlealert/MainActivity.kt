@@ -1659,6 +1659,7 @@ class MainActivity : AppCompatActivity() {
 
     private var economicEvents: List<EconomicEvent> = emptyList()
     private var economicLoading = false
+    private var economicAttempted = false
     private var economicError: String? = null
     private var economicDays = 7
     private var economicImpact = "All impact"
@@ -1667,7 +1668,7 @@ class MainActivity : AppCompatActivity() {
     private fun showEconomicCalendar(refresh: Boolean = false) {
         settingsVisible = false
         settingsSubpageVisible = false
-        if (refresh || economicEvents.isEmpty()) loadEconomicEvents()
+        if (refresh || !economicAttempted) loadEconomicEvents()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(0))
@@ -1824,6 +1825,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadEconomicEvents() {
         if (economicLoading) return
         economicLoading = true
+        economicAttempted = true
         economicError = null
         val from = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
         val to = from.plusDays(30)
