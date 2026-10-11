@@ -391,6 +391,29 @@ class MainActivity : AppCompatActivity() {
         else -> s.toString() + "s"
     }
 
+    private fun houseDrawable(tint: Int): android.graphics.drawable.Drawable = object : android.graphics.drawable.Drawable() {
+        private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = tint
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = dp(2f)
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+        override fun draw(canvas: android.graphics.Canvas) {
+            val w = bounds.width().toFloat()
+            val h = bounds.height().toFloat()
+            val p = android.graphics.Path().apply {
+                moveTo(w * .16f, h * .47f); lineTo(w * .50f, h * .18f); lineTo(w * .84f, h * .47f)
+                moveTo(w * .25f, h * .43f); lineTo(w * .25f, h * .84f); lineTo(w * .75f, h * .84f); lineTo(w * .75f, h * .43f)
+                moveTo(w * .44f, h * .84f); lineTo(w * .44f, h * .60f); lineTo(w * .56f, h * .60f); lineTo(w * .56f, h * .84f)
+            }
+            canvas.drawPath(p, paint)
+        }
+        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter }
+        override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+    }
+
     private fun addBottom(root: LinearLayout, active: String) {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -403,7 +426,7 @@ class MainActivity : AppCompatActivity() {
             }
             elevation = dp(2f)
         }
-        val items = listOf("Home" to android.R.drawable.ic_menu_view, "Journal" to android.R.drawable.ic_menu_edit, "Settings" to android.R.drawable.ic_menu_preferences)
+        val items = listOf("Home" to 0, "Journal" to android.R.drawable.ic_menu_edit, "Settings" to android.R.drawable.ic_menu_preferences)
         items.forEach { pair ->
             val name = pair.first
             val selected = active == name.lowercase()
@@ -425,8 +448,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val icon = ImageView(this).apply {
-                setImageResource(pair.second)
-                setColorFilter(if (selected) accent else muted)
+                if (name == "Home") setImageDrawable(houseDrawable(if (selected) accent else muted)) else setImageResource(pair.second)
+                setColorFilter(if (name == "Home") android.graphics.Color.TRANSPARENT else if (selected) accent else muted)
                 setPadding(dp(4), dp(3), dp(4), dp(1))
             }
             item.addView(icon, lp(28, 28))
