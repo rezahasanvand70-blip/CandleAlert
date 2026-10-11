@@ -67,10 +67,10 @@ class AnalogClockView(
         val cy = height / 2f
         val radius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
         val prefs = context.getSharedPreferences("prefs", 0)
+        val sessions = TradingSessions.sessions
         val selected = prefs.getStringSet("sessions", sessions.map { it.name }.toSet()) ?: emptySet()
         val displayZone = TradingSessions.displayZone(context)
         val now = ZonedDateTime.now(displayZone)
-        val sessions = TradingSessions.sessions
 
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF132321.toInt() else 0xFFFFFEFA.toInt()
