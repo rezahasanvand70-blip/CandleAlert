@@ -1827,7 +1827,7 @@ class MainActivity : AppCompatActivity() {
         }
         val search = EditText(this).apply {
             hint = "Search city or zone, e.g. Tehran"
-            singleLine = true
+            setSingleLine(true)
             textSize = 15f
         }
         val list = ListView(this).apply {
