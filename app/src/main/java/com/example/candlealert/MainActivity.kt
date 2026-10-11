@@ -1665,6 +1665,27 @@ class MainActivity : AppCompatActivity() {
     private var economicImpact = "All impact"
     private var economicCountry = "All countries"
 
+    private fun eventRegionLabel(event: EconomicEvent): String {
+        val currency = event.currency.uppercase(Locale.US).trim()
+        val source = "${event.country} ${event.currency} ${event.title} ${event.category}".lowercase(Locale.US)
+        return when {
+            currency.contains("EUR") || source.contains("euro area") || source.contains("eurozone") || source.contains("european central bank") || source.contains("ecb ") -> "🇪🇺 Euro (EUR)"
+            currency.contains("USD") || source.contains("united states") || source.contains("u.s.") || source.contains("federal reserve") || source.contains("nonfarm payroll") || source.contains("us dollar") || source.contains("usd") -> "🇺🇸 US Dollar (USD)"
+            currency.contains("JPY") || source.contains("japan") || source.contains("bank of japan") || source.contains("jpy") -> "🇯🇵 Japan (JPY)"
+            currency.contains("GBP") || source.contains("united kingdom") || source.contains("britain") || source.contains("bank of england") || source.contains("gbp") -> "🇬🇧 UK Pound (GBP)"
+            currency.contains("AUD") || source.contains("australia") || source.contains("reserve bank of australia") || source.contains("aud") -> "🇦🇺 Australian Dollar (AUD)"
+            currency.contains("CAD") || source.contains("canada") || source.contains("bank of canada") || source.contains("cad") -> "🇨🇦 Canadian Dollar (CAD)"
+            currency.contains("CHF") || source.contains("switzerland") || source.contains("swiss national bank") || source.contains("chf") -> "🇨🇭 Swiss Franc (CHF)"
+            currency.contains("NZD") || source.contains("new zealand") || source.contains("reserve bank of new zealand") || source.contains("nzd") -> "🇳🇿 New Zealand Dollar (NZD)"
+            currency.contains("CNY") || currency.contains("CNH") || source.contains("china") || source.contains("people's bank of china") || source.contains("cny") -> "🇨🇳 Chinese Yuan (CNY)"
+            currency.contains("INR") || source.contains("india") || source.contains("reserve bank of india") || source.contains("inr") -> "🇮🇳 Indian Rupee (INR)"
+            currency.contains("BRL") || source.contains("brazil") || source.contains("brl") -> "🇧🇷 Brazilian Real (BRL)"
+            currency.contains("MXN") || source.contains("mexico") || source.contains("mxn") -> "🇲🇽 Mexican Peso (MXN)"
+            source.contains("global") || source.contains("not specified") || source.contains("world") -> "🌐 Global / not specified"
+            else -> "🌐 Global / not specified"
+        }
+    }
+
     private fun showEconomicCalendar(refresh: Boolean = false) {
         settingsVisible = false
         settingsSubpageVisible = false
@@ -1707,7 +1728,7 @@ class MainActivity : AppCompatActivity() {
         filterRow.addView(daySpinner, lp(0, 48).apply { weight = 1f; setMargins(0, 0, dp(4), 0) })
         filterRow.addView(impactSpinner, lp(0, 48).apply { weight = 1f; setMargins(dp(4), 0, 0, 0) })
         controls.addView(filterRow)
-        val countries = listOf("All countries") + economicEvents.map { it.country }.filter { it.isNotBlank() }.distinct().sorted()
+        val countries = listOf("All countries") + economicEvents.map { eventRegionLabel(it) }.distinct().sorted()
         val countrySpinner = filterSpinner(countries, economicCountry) {
             economicCountry = it
             showEconomicCalendar()
@@ -1739,7 +1760,7 @@ class MainActivity : AppCompatActivity() {
             val filtered = economicEvents.filter { event ->
                 val instant = runCatching { java.time.Instant.parse(event.timeUtc) }.getOrNull()
                 val impactOk = economicImpact == "All impact" || event.impact.equals(economicImpact, true)
-                val countryOk = economicCountry == "All countries" || event.country == economicCountry
+                val countryOk = economicCountry == "All countries" || eventRegionLabel(event) == economicCountry
                 instant != null && !instant.isBefore(now) && !instant.isAfter(until) && impactOk && countryOk
             }
             content.addView(text("${filtered.size} scheduled events", 12f, muted).apply {
@@ -1778,7 +1799,7 @@ class MainActivity : AppCompatActivity() {
                     setPadding(0, dp(8), 0, dp(4))
                     maxLines = 4
                 })
-                card.addView(text(listOf(event.country, event.currency, event.category).filter { it.isNotBlank() }.distinct().joinToString(" • "), 11f, muted))
+                card.addView(text(listOf(eventRegionLabel(event), event.category).filter { it.isNotBlank() }.distinct().joinToString(" • "), 12f, muted).apply { setPadding(0, dp(2), 0, dp(2)) })
                 val values = listOf(
                     "Forecast" to event.consensus,
                     "Previous" to event.previous,
@@ -1835,7 +1856,7 @@ class MainActivity : AppCompatActivity() {
                 result.onSuccess {
                     economicEvents = it
                     economicError = if (it.isEmpty()) "The provider returned no scheduled events." else null
-                    economicCountry = if (economicCountry != "All countries" && it.none { event -> event.country == economicCountry }) "All countries" else economicCountry
+                    economicCountry = if (economicCountry != "All countries" && it.none { event -> eventRegionLabel(event) == economicCountry }) "All countries" else economicCountry
                 }.onFailure {
                     economicError = it.message ?: "Network error. Check your connection and try again."
                 }
