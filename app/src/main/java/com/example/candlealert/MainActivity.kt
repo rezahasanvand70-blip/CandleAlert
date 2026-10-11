@@ -276,8 +276,8 @@ class MainActivity : AppCompatActivity() {
         nextMiniTexts.addView(nextDetailsView)
         nextMiniRow.addView(nextMiniTexts, lp(0, -2).apply { weight = 1f })
         nextMini.addView(nextMiniRow)
-        content.addView(nextMini, lp(-1, 82).apply {
-            setMargins(dp(0), dp(2), dp(0), dp(18))
+        content.addView(nextMini, lp(-1, -2).apply {
+            setMargins(dp(0), dp(2), dp(0), dp(14))
         })
 
         val tf = prefs.getInt("tf", 60)
@@ -336,9 +336,9 @@ class MainActivity : AppCompatActivity() {
         content.addView(quickControl("TIMEFRAME", tfLabel) { chooseTf() },
             lp(-1, 72).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         content.addView(quickControl("MARKET", market) { chooseMarket() },
-            lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
+            lp(-1, -2).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         content.addView(quickControl("ALERT", timingSummary()) { chooseTiming() },
-            lp(-1, 84).apply { setMargins(dp(0), dp(0), dp(0), dp(10)) })
+            lp(-1, -2).apply { setMargins(dp(0), dp(0), dp(0), dp(8)) })
         content.addView(quickControl("SLEEP HOURS", sleepSummary) { editQuiet() },
             lp(-1, 82).apply { setMargins(dp(0), dp(0), dp(0), dp(16)) })
 
