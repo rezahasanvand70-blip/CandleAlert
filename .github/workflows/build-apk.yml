@@ -38,10 +38,21 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEY_ALIAS: candlealert
         run: gradle assembleDebug --stacktrace
-      - name: Print debug OAuth certificate fingerprint
+      - name: Verify APK signature and print OAuth certificate fingerprint
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/candlealert-signing-key.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: candlealert
         run: |
-          echo "=== DEBUG SIGNING REPORT (verify SHA-1 for Google OAuth) ==="
+          echo "=== SIGNING REPORT ==="
           gradle signingReport
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::Android apksigner tool was not found."
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
