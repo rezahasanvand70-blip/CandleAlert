@@ -31,11 +31,11 @@ class AnalogClockView(
     private data class Session(val name: String, val zone: String, val startHour: Int, val endHour: Int, val color: Int)
 
     private val sessions = listOf(
-        Session("Sydney", "Australia/Sydney", 8, 17, 0xFF1677FF.toInt()),
-        Session("Tokyo", "Asia/Tokyo", 9, 18, 0xFF1677FF.toInt()),
-        Session("Frankfurt", "Europe/Berlin", 8, 17, 0xFF1677FF.toInt()),
-        Session("London", "Europe/London", 8, 17, 0xFF1677FF.toInt()),
-        Session("New York", "America/New_York", 8, 17, 0xFF1677FF.toInt())
+        Session("Sydney", "Australia/Sydney", 8, 17, 0xFF6F9C91.toInt()),
+        Session("Tokyo", "Asia/Tokyo", 9, 18, 0xFF91A9B4.toInt()),
+        Session("Frankfurt", "Europe/Berlin", 8, 17, 0xFFC2A56C.toInt()),
+        Session("London", "Europe/London", 8, 17, 0xFF4F8D82.toInt()),
+        Session("New York", "America/New_York", 8, 17, 0xFF176B63.toInt())
     )
 
     private val face = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -82,19 +82,19 @@ class AnalogClockView(
         val now = ZonedDateTime.now(deviceZone)
 
         face.style = Paint.Style.FILL
-        face.color = if (darkTheme) 0xFF15191F.toInt() else 0xFFFFFFFF.toInt()
+        face.color = if (darkTheme) 0xFF132321.toInt() else 0xFFFFFEFA.toInt()
         canvas.drawCircle(cx, cy, radius + u(13f), face)
         face.style = Paint.Style.STROKE
         face.strokeWidth = u(1.5f)
-        face.color = if (darkTheme) 0xFF3B434E.toInt() else 0xFFD8DEE6.toInt()
+        face.color = if (darkTheme) 0xFF49635E.toInt() else 0xFFD8DED5.toInt()
         canvas.drawCircle(cx, cy, radius + u(13f), face)
         face.style = Paint.Style.FILL
-        face.color = if (darkTheme) 0xFF1B2027.toInt() else 0xFFF7F9FB.toInt()
+        face.color = if (darkTheme) 0xFF1B302D.toInt() else 0xFFF1F2E9.toInt()
         canvas.drawCircle(cx, cy, radius, face)
 
         val candle = candleState()
         candlePaint.strokeWidth = radius * 0.035f
-        candlePaint.color = if (darkTheme) 0xFF536171.toInt() else 0xFFDCE3EB.toInt()
+        candlePaint.color = if (darkTheme) 0xFF49635E.toInt() else 0xFFD7DED5.toInt()
         candlePaint.alpha = 220
         canvas.drawCircle(cx, cy, radius + u(7f), candlePaint)
         candlePaint.color = accent
@@ -149,18 +149,18 @@ class AnalogClockView(
 
         // Digital clock centered beneath the hands, with enough separation for the candle timer.
         face.style = Paint.Style.FILL
-        face.color = if (darkTheme) 0xFF1B2027.toInt() else 0xFFF7F9FB.toInt()
+        face.color = if (darkTheme) 0xFF1B302D.toInt() else 0xFFF1F2E9.toInt()
         canvas.drawRoundRect(RectF(cx - radius * 0.21f, cy - radius * 0.075f, cx + radius * 0.21f, cy + radius * 0.075f), radius * 0.035f, radius * 0.035f, face)
         digital.color = primary
         digital.textSize = radius * 0.082f
         val timeText = String.format(Locale.getDefault(), "%02d:%02d:%02d", hour, minute, second)
         canvas.drawText(timeText, cx, cy - (digital.ascent() + digital.descent()) / 2f, digital)
 
-        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, u(7f), primary)
-        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), primary)
-        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), primary)
+        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, u(7f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
+        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
+        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), 0xFFC5A15A.toInt())
 
-        center.color = primary
+        center.color = 0xFFC5A15A.toInt()
         canvas.drawCircle(cx, cy, u(6f), center)
         canvas.drawCircle(cx, cy, u(2.5f), center)
 
@@ -226,7 +226,7 @@ class AnalogClockView(
     }
 
     private fun drawSessionBand(canvas: Canvas, cx: Float, cy: Float, rr: Float, width: Float, session: Session, enabled: Boolean, now: ZonedDateTime) {
-        ringTrack.color = if (darkTheme) 0xFF39414D.toInt() else 0xFFDCE3EB.toInt()
+        ringTrack.color = if (darkTheme) 0xFF3A514C.toInt() else 0xFFDDE3DA.toInt()
         ringTrack.strokeWidth = width
         ringTrack.alpha = if (darkTheme) 150 else 125
         canvas.drawCircle(cx, cy, rr, ringTrack)
