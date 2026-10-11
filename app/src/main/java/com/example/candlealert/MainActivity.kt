@@ -45,6 +45,17 @@ class MainActivity : AppCompatActivity() {
     private var computerClockView: TextView? = null
     private var candleCountdownView: TextView? = null
     private var ticker: Runnable? = null
+    private var settingsVisible = false
+    private var settingsSubpageVisible = false
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        when {
+            settingsSubpageVisible -> showSettings()
+            settingsVisible -> showHome()
+            else -> super.onBackPressed()
+        }
+    }
 
     override fun onCreate(b: Bundle?) {
         applyNightModePreference()
@@ -176,6 +187,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showHome() {
+        settingsVisible = false
+        settingsSubpageVisible = false
         val root = base(edgeToEdge = true)
         // Home is intentionally a real scroll surface. Nothing is squeezed just to fit
         // one phone viewport: the alert status, clock, next alert and every control can scroll.
@@ -678,6 +691,8 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun showGoogleSheetsSettings() {
+        settingsVisible = true
+        settingsSubpageVisible = true
         val root = base()
         root.addView(text("Google Sheets", 23f))
         root.addView(text("Keep your Journal in your personal Google Sheet so the data survives app replacement or deletion.", 14f, muted).apply {
@@ -1641,6 +1656,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSettings() {
+        settingsVisible = true
+        settingsSubpageVisible = false
         val root = base()
         root.addView(text("Settings", 23f))
         root.addView(text("Configure how Candle Alert behaves", 14f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(12)) })
@@ -1665,8 +1682,8 @@ class MainActivity : AppCompatActivity() {
         }
         val options = listOf(
             Triple("Open Market", "Broker candle starts at $openMarketValue", "market"),
-            Triple("Theme", themeValue, "settings"),
             Triple("Clock Time Zone", clockTimeZoneSummary(), "time"),
+            Triple("Theme", themeValue, "settings"),
             Triple("Google Sheets Journal", sheetValue, "index"),
             Triple("Open App on Notification", appValue, "forex"),
             Triple("Exact Alarm Permission", alarmValue, "time")
@@ -1724,6 +1741,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showTimeZoneSettings() {
+        settingsVisible = true
+        settingsSubpageVisible = true
         val root = base()
         root.addView(text("Local Time Zone", 23f))
         root.addView(text("Choose the time zone used by the clock and session rings. Session boundaries are converted through UTC using the rules for each market.", 14f, muted).apply {
@@ -2028,6 +2047,8 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun showThemeSettings() {
+        settingsVisible = true
+        settingsSubpageVisible = true
         val root = base()
         root.addView(text("Theme", 23f))
         root.addView(text("Choose light, dark, or your phone's system theme.", 14f, muted).apply {
