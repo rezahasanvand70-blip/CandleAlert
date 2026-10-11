@@ -71,8 +71,10 @@ object EconomicCalendarRepository {
     }
 
     private fun parse(body: String): List<EconomicEvent> {
-        val root = JSONObject(body)
-        val events = when {
+        val trimmed = body.trim()
+        val rootArray = if (trimmed.startsWith("[")) JSONArray(trimmed) else null
+        val root = if (rootArray == null) JSONObject(body) else JSONObject()
+        val events = rootArray ?: when {
             root.optJSONArray("events") != null -> root.optJSONArray("events")!!
             root.optJSONArray("data") != null -> root.optJSONArray("data")!!
             root.optJSONArray("calendar") != null -> root.optJSONArray("calendar")!!
