@@ -28,16 +28,6 @@ class AnalogClockView(
     private fun u(v: Float): Float = v * resources.displayMetrics.density
 
 
-    private data class Session(val name: String, val zone: String, val startHour: Int, val endHour: Int, val color: Int)
-
-    private val sessions = listOf(
-        Session("Sydney", "Australia/Sydney", 8, 17, 0xFF6F9C91.toInt()),
-        Session("Tokyo", "Asia/Tokyo", 9, 18, 0xFF91A9B4.toInt()),
-        Session("Frankfurt", "Europe/Berlin", 8, 17, 0xFFC2A56C.toInt()),
-        Session("London", "Europe/London", 8, 17, 0xFF4F8D82.toInt()),
-        Session("New York", "America/New_York", 8, 17, 0xFF176B63.toInt())
-    )
-
     private val face = Paint(Paint.ANTI_ALIAS_FLAG)
     private val tick = Paint(Paint.ANTI_ALIAS_FLAG)
     private val hand = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -78,8 +68,9 @@ class AnalogClockView(
         val radius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
         val prefs = context.getSharedPreferences("prefs", 0)
         val selected = prefs.getStringSet("sessions", sessions.map { it.name }.toSet()) ?: emptySet()
-        val deviceZone = ZoneId.systemDefault()
-        val now = ZonedDateTime.now(deviceZone)
+        val displayZone = TradingSessions.displayZone(context)
+        val now = ZonedDateTime.now(displayZone)
+        val sessions = TradingSessions.sessions
 
         face.style = Paint.Style.FILL
         face.color = if (darkTheme) 0xFF132321.toInt() else 0xFFFFFEFA.toInt()
@@ -208,7 +199,7 @@ class AnalogClockView(
         return String.format(Locale.getDefault(), "%02d:%02d", m, s)
     }
 
-    private fun drawSessionBand(canvas: Canvas, cx: Float, cy: Float, rr: Float, width: Float, session: Session, enabled: Boolean, now: ZonedDateTime) {
+    private fun drawSessionBand(canvas: Canvas, cx: Float, cy: Float, rr: Float, width: Float, session: TradingSessions.Session, enabled: Boolean, now: ZonedDateTime) {
         ringTrack.color = if (darkTheme) 0xFF3A514C.toInt() else 0xFFDDE3DA.toInt()
         ringTrack.strokeWidth = width
         ringTrack.alpha = if (darkTheme) 150 else 125
@@ -225,16 +216,8 @@ class AnalogClockView(
         canvas.drawArc(RectF(cx - rr, cy - rr, cx + rr, cy + rr), startAngle, sweep.coerceAtMost(359.9f), false, sessionPaint)
     }
 
-    private fun sessionLocalInterval(session: Session, now: ZonedDateTime): Pair<Float, Float> {
-        val localZone = ZoneId.systemDefault()
-        val zone = ZoneId.of(session.zone)
-        val sourceDate = now.withZoneSameInstant(zone).toLocalDate()
-        val startSource = ZonedDateTime.of(sourceDate, LocalTime.of(session.startHour, 0), zone)
-        val endDate = if (session.endHour <= session.startHour) sourceDate.plusDays(1) else sourceDate
-        val endSource = ZonedDateTime.of(endDate, LocalTime.of(session.endHour, 0), zone)
-        val startLocal = startSource.withZoneSameInstant(localZone)
-        val endLocal = endSource.withZoneSameInstant(localZone)
-        return Pair(startLocal.hour + startLocal.minute / 60f, endLocal.hour + endLocal.minute / 60f)
+    private fun sessionLocalInterval(session: TradingSessions.Session, now: ZonedDateTime): Pair<Float, Float> {
+        return TradingSessions.localInterval(session, now.toInstant(), now.zone)
     }
 
     private fun midpointAngle(start: Float, end: Float): Float {
@@ -257,6 +240,7 @@ class AnalogClockView(
         val bandGap = radius * 0.115f
         val bandWidth = radius * 0.090f
 
+        val sessions = TradingSessions.sessions
         var hitIndex = -1
         var hitDistance = Float.MAX_VALUE
         sessions.forEachIndexed { index, _ ->
