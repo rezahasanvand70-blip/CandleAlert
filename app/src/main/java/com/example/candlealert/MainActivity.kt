@@ -319,6 +319,14 @@ class MainActivity : AppCompatActivity() {
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(dp(0), dp(7), dp(0), dp(0))
             })
+            val quickKind = when (labelText) {
+                "TIMEFRAME" -> "time"
+                "MARKET" -> "market"
+                "ALERT" -> "forex"
+                "SLEEP HOURS" -> "time"
+                else -> "market"
+            }
+            box.addView(TradingIllustrationView(quickKind, accent), lp(52, 52).apply { setMargins(0, 0, dp(14), 0) })
             box.addView(texts, lp(0, 60).apply { weight = 1f })
             box.addView(text("›", 30f, muted).apply { gravity = Gravity.CENTER })
             return box
@@ -902,6 +910,132 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
     }
 
+    /**
+     * Custom-drawn trading illustrations: real shapes, not text glyphs or emoji.
+     * Kept in Canvas so they remain crisp at every Android density without external assets.
+     */
+    private inner class TradingIllustrationView(
+        private val kind: String,
+        private val tint: Int = accent,
+        private val compact: Boolean = false
+    ) : View(this@MainActivity) {
+        private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        private fun color(c: Int) { p.color = c; p.style = android.graphics.Paint.Style.FILL; p.strokeWidth = dp(1.5f) }
+        private fun path(canvas: android.graphics.Canvas, pts: List<Pair<Float, Float>>, fill: Int) {
+            color(fill)
+            val path = android.graphics.Path()
+            pts.forEachIndexed { i, pt -> if (i == 0) path.moveTo(pt.first, pt.second) else path.lineTo(pt.first, pt.second) }
+            path.close()
+            canvas.drawPath(path, p)
+        }
+        override fun onDraw(canvas: android.graphics.Canvas) {
+            super.onDraw(canvas)
+            val side = minOf(width, height).toFloat()
+            if (side <= 0f) return
+            val save = canvas.save()
+            val left = (width - side) / 2f
+            val top = (height - side) / 2f
+            canvas.translate(left, top)
+            canvas.scale(side / 64f, side / 64f)
+            val bg = if (darkMode) Color.rgb(34, 53, 49) else Color.rgb(239, 243, 235)
+            color(bg); canvas.drawRoundRect(1f, 1f, 63f, 63f, 17f, 17f, p)
+            val gold = Color.rgb(205, 163, 76)
+            val goldLight = Color.rgb(246, 216, 139)
+            val goldDark = Color.rgb(145, 103, 34)
+            val silver = Color.rgb(157, 174, 180)
+            val silverLight = Color.rgb(226, 234, 232)
+            val silverDark = Color.rgb(105, 126, 133)
+            when (kind.lowercase(Locale.US)) {
+                "gold" -> {
+                    path(canvas, listOf(10f to 37f, 17f to 23f, 45f to 23f, 54f to 37f, 48f to 49f, 16f to 49f), goldDark)
+                    path(canvas, listOf(10f to 37f, 17f to 23f, 45f to 23f, 37f to 37f), goldLight)
+                    path(canvas, listOf(37f to 37f, 45f to 23f, 54f to 37f, 48f to 49f), gold)
+                    path(canvas, listOf(10f to 37f, 37f to 37f, 48f to 49f, 16f to 49f), gold)
+                    color(goldLight); p.strokeWidth = 1.7f; p.style = android.graphics.Paint.Style.STROKE
+                    canvas.drawLine(20f, 28f, 39f, 28f, p); p.style = android.graphics.Paint.Style.FILL
+                    color(goldDark); p.textSize = 6.5f; p.typeface = Typeface.DEFAULT_BOLD; canvas.drawText("999.9", 23f, 43f, p)
+                }
+                "silver" -> {
+                    path(canvas, listOf(10f to 37f, 18f to 24f, 45f to 24f, 54f to 37f, 47f to 49f, 16f to 49f), silverDark)
+                    path(canvas, listOf(10f to 37f, 18f to 24f, 45f to 24f, 37f to 37f), silverLight)
+                    path(canvas, listOf(37f to 37f, 45f to 24f, 54f to 37f, 47f to 49f), silver)
+                    path(canvas, listOf(10f to 37f, 37f to 37f, 47f to 49f, 16f to 49f), silver)
+                    color(Color.WHITE); p.strokeWidth = 1.5f; p.style = android.graphics.Paint.Style.STROKE
+                    canvas.drawLine(21f, 28f, 39f, 28f, p); p.style = android.graphics.Paint.Style.FILL
+                }
+                "crypto" -> {
+                    color(Color.rgb(220, 150, 55)); canvas.drawCircle(32f, 32f, 21f, p)
+                    color(Color.rgb(250, 195, 93)); canvas.drawCircle(32f, 32f, 17f, p)
+                    color(Color.rgb(174, 104, 30)); p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 2.5f
+                    canvas.drawCircle(32f, 32f, 17f, p); p.style = android.graphics.Paint.Style.FILL
+                    color(Color.rgb(140, 83, 23)); p.textSize = 27f; p.typeface = Typeface.DEFAULT_BOLD
+                    canvas.drawText(if (tint == Color.rgb(205, 126, 48)) "₿" else "Ξ", 21f, 41f, p)
+                }
+                "index" -> {
+                    color(Color.rgb(202, 220, 210)); canvas.drawRoundRect(10f, 11f, 54f, 53f, 7f, 7f, p)
+                    val vals = listOf(17f to 42f, 25f to 33f, 32f to 37f, 40f to 23f, 49f to 27f)
+                    color(tint); p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 3f
+                    val line = android.graphics.Path(); vals.forEachIndexed { i, pt -> if (i == 0) line.moveTo(pt.first, pt.second) else line.lineTo(pt.first, pt.second) }
+                    canvas.drawPath(line, p); p.style = android.graphics.Paint.Style.FILL
+                    vals.forEach { color(tint); canvas.drawCircle(it.first, it.second, 2.2f, p) }
+                }
+                "forex", "pair" -> {
+                    color(tint); p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 2.4f
+                    canvas.drawCircle(25f, 30f, 15f, p); canvas.drawCircle(39f, 35f, 15f, p); p.style = android.graphics.Paint.Style.FILL
+                    color(tint); p.textSize = 17f; p.typeface = Typeface.DEFAULT_BOLD
+                    canvas.drawText("$", 15f, 36f, p); canvas.drawText("€", 32f, 41f, p)
+                    color(gold); p.strokeWidth = 2.5f
+                    canvas.drawLine(31f, 13f, 43f, 13f, p); canvas.drawLine(43f, 13f, 39f, 9f, p); canvas.drawLine(43f, 13f, 39f, 17f, p)
+                }
+                "time" -> {
+                    color(tint); p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 2.5f
+                    canvas.drawCircle(32f, 32f, 20f, p); p.style = android.graphics.Paint.Style.FILL
+                    color(tint); canvas.drawRoundRect(30f, 17f, 34f, 33f, 2f, 2f, p); canvas.drawRoundRect(31f, 30f, 44f, 34f, 2f, 2f, p)
+                    color(gold); canvas.drawCircle(32f, 32f, 3f, p)
+                }
+                "market" -> {
+                    color(tint); canvas.drawRoundRect(12f, 14f, 52f, 50f, 8f, 8f, p)
+                    color(bg); canvas.drawRect(18f, 22f, 22f, 42f, p); canvas.drawRect(29f, 18f, 33f, 42f, p); canvas.drawRect(40f, 27f, 44f, 42f, p)
+                    color(gold); p.strokeWidth = 2.4f; p.style = android.graphics.Paint.Style.STROKE
+                    val path = android.graphics.Path().apply { moveTo(17f, 34f); lineTo(27f, 27f); lineTo(35f, 31f); lineTo(47f, 20f) }
+                    canvas.drawPath(path, p); p.style = android.graphics.Paint.Style.FILL
+                }
+                "settings" -> {
+                    color(tint); p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 5f
+                    canvas.drawCircle(32f, 32f, 14f, p); p.style = android.graphics.Paint.Style.FILL
+                    for (i in 0..7) {
+                        val a = Math.PI * i / 4.0
+                        val x1 = 32f + (16f * kotlin.math.cos(a)).toFloat()
+                        val y1 = 32f + (16f * kotlin.math.sin(a)).toFloat()
+                        val x2 = 32f + (22f * kotlin.math.cos(a)).toFloat()
+                        val y2 = 32f + (22f * kotlin.math.sin(a)).toFloat()
+                        color(tint); p.strokeWidth = 4f; canvas.drawLine(x1, y1, x2, y2, p)
+                    }
+                    color(gold); canvas.drawCircle(32f, 32f, 6f, p); color(bg); canvas.drawCircle(32f, 32f, 2.5f, p)
+                }
+                else -> {
+                    color(tint); p.strokeWidth = 3f; p.style = android.graphics.Paint.Style.STROKE
+                    canvas.drawRoundRect(12f, 12f, 52f, 52f, 9f, 9f, p); p.style = android.graphics.Paint.Style.FILL
+                    color(gold); canvas.drawCircle(32f, 32f, 9f, p)
+                }
+            }
+            canvas.restoreToCount(save)
+        }
+    }
+
+    private fun illustrationKind(symbol: String): String {
+        val s = symbol.uppercase(Locale.US)
+        return when {
+            s.contains("XAU") || s.contains("GOLD") -> "gold"
+            s.contains("XAG") || s.contains("SILVER") -> "silver"
+            s.contains("BTC") || s.contains("ETH") -> "crypto"
+            s.contains("US30") || s.contains("NAS") || s.contains("SPX") || s.contains("DAX") || s.contains("INDEX") -> "index"
+            s.contains("OIL") || s.contains("WTI") || s.contains("BRENT") -> "market"
+            s.length == 6 && s.all { it.isLetter() } -> "forex"
+            else -> "market"
+        }
+    }
+
     private fun symbolMark(symbol: String): String {
         val s = symbol.uppercase(Locale.US)
         return when {
@@ -935,19 +1069,8 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(14), dp(14), dp(14), dp(12))
         }
         val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val mark = TextView(this).apply {
-            text = symbolMark(t.symbol)
-            gravity = Gravity.CENTER
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(symbolMarkColor(t.symbol))
-            background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = dp(14f)
-                setColor(if (darkMode) Color.rgb(37, 54, 52) else Color.rgb(238, 244, 238))
-                setStroke(dp(1), line)
-            }
-        }
-        row.addView(mark, lp(48, 48).apply { setMargins(0, 0, dp(12), 0) })
+        val mark = TradingIllustrationView(illustrationKind(t.symbol), symbolMarkColor(t.symbol))
+        row.addView(mark, lp(54, 54).apply { setMargins(0, 0, dp(12), 0) })
         val title = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         title.addView(text(t.symbol, 17f).apply { typeface = Typeface.DEFAULT_BOLD })
         title.addView(text("Entry " + journalDate(t.entryTime), 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
@@ -1484,6 +1607,14 @@ class MainActivity : AppCompatActivity() {
         options.forEach { pair ->
             val c = panel().apply { setPadding(dp(16), dp(8), dp(14), dp(8)) }
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            val settingsKind = when (pair.first) {
+                "Open Market" -> "market"
+                "Theme" -> "settings"
+                "Google Sheets Journal" -> "index"
+                "Open App on Notification" -> "forex"
+                else -> "time"
+            }
+            row.addView(TradingIllustrationView(settingsKind, accent), lp(48, 48).apply { setMargins(0, 0, dp(12), 0) })
             val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
             titles.addView(text(pair.first, 16f).apply { typeface = Typeface.DEFAULT_BOLD })
             titles.addView(text(pair.second, 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
