@@ -661,7 +661,8 @@ class MainActivity : AppCompatActivity() {
                 listOf(t.id.toString(), if (t.exitTime == null) "OPEN" else "CLOSED", t.symbol, t.direction,
                     t.entryTime.toString(), t.entry, t.sl, t.tp, t.volume, t.exitTime?.toString() ?: "",
                     if (t.exitTime != null) journalDuration(t.entryTime, t.exitTime!!) else "",
-                    t.exit, t.pnl, t.swap, t.commission, t.exitReason, t.notes)
+                    t.exit, t.pnl, t.swap, t.commission, t.exitReason, t.notes,
+                    String.format(Locale.US, "%.2f", (t.pnl.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.swap.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)))
             }, initial, deposits, withdrawals)
             runOnUiThread {
                 if (ok) {
