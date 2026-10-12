@@ -1961,6 +1961,11 @@ class MainActivity : AppCompatActivity() {
         settingsVisible = false
         settingsSubpageVisible = false
         if (refresh || !economicAttempted) loadEconomicEvents()
+        // Re-read persisted filters whenever the News screen is opened, so returning
+        // from another section or recreating the activity restores the same selections.
+        economicDays = prefs.getInt("news_filter_days", economicDays).let { if (it in listOf(1, 7, 14, 30)) it else 7 }
+        economicImpact = prefs.getString("news_filter_impact", economicImpact) ?: "All impact"
+        economicCountry = prefs.getString("news_filter_country", economicCountry) ?: "All countries"
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(0))
@@ -2130,7 +2135,9 @@ class MainActivity : AppCompatActivity() {
                 result.onSuccess {
                     economicEvents = it
                     economicError = if (it.isEmpty()) "The provider returned no scheduled events." else null
-                    economicCountry = if (economicCountry != "All countries" && it.none { event -> eventRegionLabel(event) == economicCountry }) "All countries" else economicCountry
+                    // Keep the user's saved country filter even when the current feed
+                    // temporarily contains no events for it. A refresh must not silently
+                    // reset a preference the user deliberately selected.
                 }.onFailure {
                     economicError = it.message ?: "Network error. Check your connection and try again."
                 }
