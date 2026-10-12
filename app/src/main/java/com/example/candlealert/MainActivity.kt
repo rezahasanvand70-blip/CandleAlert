@@ -532,7 +532,8 @@ class MainActivity : AppCompatActivity() {
         var exit: String,
         var pnl: String,
         var exitReason: String,
-        var notes: String,
+        var entryNotes: String,
+        var exitNotes: String = "",
         var swap: String = "0",
         var commission: String = "0"
     )
@@ -557,7 +558,8 @@ class MainActivity : AppCompatActivity() {
                     o.optString("exit"),
                     o.optString("pnl"),
                     o.optString("exitReason"),
-                    o.optString("notes"),
+                    o.optString("entryNotes", o.optString("notes", "")),
+                    o.optString("exitNotes", ""),
                     o.optString("swap", "0"),
                     o.optString("commission", "0")
                 ))
@@ -582,7 +584,8 @@ class MainActivity : AppCompatActivity() {
                 put("exit", t.exit)
                 put("pnl", t.pnl)
                 put("exitReason", t.exitReason)
-                put("notes", t.notes)
+                put("entryNotes", t.entryNotes)
+                put("exitNotes", t.exitNotes)
                 put("swap", t.swap)
                 put("commission", t.commission)
             })
@@ -661,8 +664,8 @@ class MainActivity : AppCompatActivity() {
                 listOf(t.id.toString(), if (t.exitTime == null) "OPEN" else "CLOSED", t.symbol, t.direction,
                     t.entryTime.toString(), t.entry, t.sl, t.tp, t.volume, t.exitTime?.toString() ?: "",
                     if (t.exitTime != null) journalDuration(t.entryTime, t.exitTime!!) else "",
-                    t.exit, t.pnl, t.swap, t.commission, t.exitReason, t.notes,
-                    String.format(Locale.US, "%.2f", (t.pnl.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.swap.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)))
+                    t.exit, t.pnl, t.swap, t.commission, t.exitReason, t.entryNotes, t.exitNotes,
+                    String.format(Locale.US, "%.2f", (t.pnl.toDoubleOrNull() ?: 0.0) + (t.swap.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)))
             }, initial, deposits, withdrawals)
             runOnUiThread {
                 if (ok) {
@@ -834,7 +837,7 @@ class MainActivity : AppCompatActivity() {
 
         // Large performance summary: values are intentionally prominent and
         // profit/loss state is reinforced with explicit green/red typography.
-        val closedWithPnl = closed.mapNotNull { it.pnl.toDoubleOrNull()?.minus(kotlin.math.abs(it.swap.toDoubleOrNull() ?: 0.0) + kotlin.math.abs(it.commission.toDoubleOrNull() ?: 0.0)) }
+        val closedWithPnl = closed.mapNotNull { it.pnl.toDoubleOrNull()?.plus(it.swap.toDoubleOrNull() ?: 0.0)?.minus(kotlin.math.abs(it.commission.toDoubleOrNull() ?: 0.0)) }
         val wins = closedWithPnl.count { it > 0.0 }
         val losses = closedWithPnl.count { it < 0.0 }
         val grossProfit = closedWithPnl.filter { it > 0.0 }.sum()
@@ -1200,14 +1203,16 @@ class MainActivity : AppCompatActivity() {
         }
         if (!isOpen) {
             val grossPnl = t.pnl.toDoubleOrNull() ?: 0.0
-            val costs = kotlin.math.abs(t.swap.toDoubleOrNull() ?: 0.0) + kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)
-            val netPnl = grossPnl - costs
+            val swapValue = t.swap.toDoubleOrNull() ?: 0.0
+            val commissionValue = kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)
+            val netPnl = grossPnl + swapValue - commissionValue
+            val costs = kotlin.math.abs(swapValue) + commissionValue
             c.addView(text(
                 "Exit " + t.exit.ifBlank { "—" } + "   •   Net P/L " + String.format(Locale.US, "%.2f", netPnl),
                 13f, if (netPnl >= 0) green else red
             ).apply { setPadding(dp(0), dp(5), dp(0), dp(0)) })
             if (costs > 0.0) {
-                c.addView(text("Swap: " + t.swap + "   •   Commission: " + t.commission, 12f, muted)
+                c.addView(text("Swap (− debit / + credit): " + t.swap + "   •   Commission: " + t.commission, 12f, muted)
                     .apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
             }
             if (t.exitReason.isNotBlank()) {
@@ -1362,8 +1367,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalNotesStep(t: JournalTrade) {
-        journalAsk("8 / 8  •  Notes", "Optional setup / reason / review", "", true) {
-            t.notes = it
+        journalAsk("8 / 8  •  Entry Notes", "Optional — setup, entry rationale, market context", "", true) {
+            t.entryNotes = it
             journalConfirmNew(t)
         }
     }
@@ -1466,10 +1471,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalSwapStep(t: JournalTrade) {
-        journalAsk("4 / 7  •  Swap Cost", "Swap cost (0 if none)", t.swap.takeUnless { it == "0" } ?: "", true) {
+        journalAsk("4 / 7  •  Swap (±)", "Negative = charge, positive = credit; 0 if none", t.swap.takeUnless { it == "0" } ?: "", true) {
             val amount = if (it.isBlank()) 0.0 else it.toDoubleOrNull()
-            if (amount == null || amount < 0.0) {
-                Toast.makeText(this, "Enter a valid non-negative swap cost.", Toast.LENGTH_SHORT).show()
+            if (amount == null) {
+                Toast.makeText(this, "Enter a valid signed swap amount (negative or positive).", Toast.LENGTH_SHORT).show()
                 journalSwapStep(t)
             } else {
                 t.swap = amount.toString()
@@ -1500,8 +1505,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalCloseNotesStep(t: JournalTrade) {
-        journalAsk("7 / 7  •  Closing Notes", "Optional — what went well / what to improve", "", true) {
-            t.notes = if (it.isBlank()) t.notes else if (t.notes.isBlank()) it else t.notes + "\n" + it
+        journalAsk("7 / 7  •  Exit Notes", "Optional — result review, execution, lessons learned", "", true) {
+            t.exitNotes = it
             journalConfirmClose(t)
         }
     }
@@ -1513,7 +1518,7 @@ class MainActivity : AppCompatActivity() {
             "\nGross P/L: " + t.pnl.ifBlank { "—" } +
             "\nSwap: " + t.swap +
             "\nCommission: " + t.commission +
-            "\nNet P/L after costs: " + String.format(Locale.US, "%.2f", (t.pnl.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.swap.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)) +
+            "\nNet P/L after costs: " + String.format(Locale.US, "%.2f", (t.pnl.toDoubleOrNull() ?: 0.0) + (t.swap.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)) +
             "\nExit time: " + (t.exitTime?.let { journalDate(it) } ?: "—")
         journalRR(t)?.let { msg += "\nR:R planned: 1 : " + String.format(Locale.US, "%.2f", it) }
         AlertDialog.Builder(this).setTitle("Close Trade").setMessage(msg)
@@ -1609,8 +1614,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalEditNotesStep(t: JournalTrade) {
-        journalEditAsk("Edit • Notes", "Optional setup / reason / review", t.notes) {
-            t.notes = it
+        journalEditAsk("Edit • Entry Notes", "Optional setup / entry rationale / market context", t.entryNotes) {
+            t.entryNotes = it
             if (t.exitTime != null) journalEditExitPriceStep(t) else journalSaveEditedTrade(t)
         }
     }
@@ -1669,13 +1674,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalEditSwapStep(t: JournalTrade) {
-        journalEditAsk("Edit • Swap Cost", "Enter positive cost; blank or 0 if none", t.swap) { swap ->
-            val amount = swap.toDoubleOrNull()
-            if (swap.isNotBlank() && (amount == null || amount < 0)) {
-                Toast.makeText(this, "Enter a valid non-negative swap cost.", Toast.LENGTH_SHORT).show()
+        journalEditAsk("Edit • Swap (±)", "Negative = charge, positive = credit; blank or 0 if none", t.swap) { swap ->
+            val amount = if (swap.isBlank()) 0.0 else swap.toDoubleOrNull()
+            if (amount == null) {
+                Toast.makeText(this, "Enter a valid signed swap amount.", Toast.LENGTH_SHORT).show()
                 journalEditSwapStep(t)
             } else {
-                t.swap = if (swap.isBlank()) "0" else swap
+                t.swap = amount.toString()
                 journalEditCommissionStep(t)
             }
         }
@@ -1710,8 +1715,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalEditClosingNotesStep(t: JournalTrade) {
-        journalEditAsk("Edit • Closing Notes", "Closing notes", t.notes) { notes ->
-            t.notes = notes
+        journalEditAsk("Edit • Exit Notes", "Optional closing review / lessons learned", t.exitNotes) { notes ->
+            t.exitNotes = notes
             journalSaveEditedTrade(t)
         }
     }
