@@ -590,27 +590,43 @@ class AnalogClockView(
         return mid
     }
 
+    private fun pointInPolygon(lon: Float, lat: Float, polygon: List<GeoPoint>): Boolean {
+        var inside = false
+        var j = polygon.lastIndex
+        for (i in polygon.indices) {
+            val a = polygon[i]
+            val b = polygon[j]
+            val crosses = ((a.lat > lat) != (b.lat > lat)) &&
+                (lon < (b.lon - a.lon) * (lat - a.lat) / ((b.lat - a.lat).takeIf { it != 0f } ?: 0.0001f) + a.lon)
+            if (crosses) inside = !inside
+            j = i
+        }
+        return inside
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action != MotionEvent.ACTION_UP) return true
         val cx = width / 2f
         val cy = height / 2f
         val size = min(width, height).toFloat()
-        // Keep hit-test geometry exactly aligned with the dial and visible marker positions.
-        val radius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
-        val mapRadius = radius * 0.84f
-        val hitRadius = u(22f)
-        val hit = TradingSessions.sessions.map { session ->
-            val p = markerPosition(session, cx, cy, mapRadius)
-            val dx = event.x - p.first
-            val dy = event.y - p.second
-            session to (dx * dx + dy * dy)
-        }.filter { it.second <= hitRadius * hitRadius }
-            .minByOrNull { it.second }
-        if (hit != null) onSessionToggle(hit.first.name)
+        val dialRadius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
+        val mapRadius = dialRadius * 0.84f
+        val dx = event.x - cx
+        val dy = event.y - cy
+        if (dx * dx + dy * dy > mapRadius * mapRadius) return true
+
+        // Convert the tap to map coordinates, then toggle the country/session under it.
+        // There are deliberately no visible city pins: the country outline is the control.
+        val lon = (dx / mapRadius) * 180f
+        val lat = (-dy / mapRadius) * 180f
+        val hit = countryShapes.firstOrNull { country ->
+            country.polygons.any { pointInPolygon(lon, lat, it) }
+        }
+        if (hit != null) onSessionToggle(hit.sessionName)
         return true
     }
 
-    private fun isHourInRange(hour: Float, start: Float, end: Float): Boolean {
+        private fun isHourInRange(hour: Float, start: Float, end: Float): Boolean {
         return if (start <= end) hour >= start && hour < end else hour >= start || hour < end
     }
 
