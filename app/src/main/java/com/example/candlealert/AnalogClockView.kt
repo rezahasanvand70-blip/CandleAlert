@@ -93,15 +93,7 @@ class AnalogClockView(
         val progressSweep = (candle.progress * 360f).coerceIn(0f, 359.9f)
         canvas.drawArc(RectF(cx - radius - u(7f), cy - radius - u(7f), cx + radius + u(7f), cy + radius + u(7f)), -90f, progressSweep, false, candlePaint)
 
-        val bandBase = radius * 0.76f
-        val bandGap = radius * 0.115f
-        val bandWidth = radius * 0.090f
-
-        sessions.forEachIndexed { index, session ->
-            val visualIndex = sessions.lastIndex - index
-            val rr = bandBase - visualIndex * bandGap
-            drawSessionBand(canvas, cx, cy, rr, bandWidth, session, selected.contains(session.name), now)
-        }
+        drawPixelWorldMap(canvas, cx, cy, radius * 0.84f, sessions, selected, now)
 
         // Hour markers are small dots placed outside the numerals, so they never cross the 1–24 labels.
         tick.style = Paint.Style.FILL
@@ -144,34 +136,102 @@ class AnalogClockView(
 
         // Digital time and candle countdown are shown in the compact strip below the dial.
 
-        // Labels use a fixed center point on each band: both angularly and radially.
-        labelPaint.textSize = radius * 0.047f
-        sessions.forEachIndexed { index, session ->
-            val visualIndex = sessions.lastIndex - index
-            val rr = bandBase - visualIndex * bandGap
-            val local = sessionLocalInterval(session, now)
-            val mid = midpointAngle(local.first, local.second)
-            val angleDeg = mid * 15f - 90f
-            labelPaint.color = 0xFFFFFFFF.toInt()
-            labelPaint.alpha = if (selected.contains(session.name)) 250 else 75
-            labelPaint.textAlign = Paint.Align.CENTER
+        // Country labels are kept outside the map to preserve the clean pixel-globe look.
 
-            val path = Path()
-            val arcSpan = min(48f, ((local.second - local.first + 24f) % 24f).coerceAtLeast(4f) * 15f * 0.78f)
-            val start = angleDeg - arcSpan / 2f
-            path.addArc(RectF(cx - rr, cy - rr, cx + rr, cy + rr), start, arcSpan)
-
-            val arcLength = arcSpan * Math.PI.toFloat() / 180f * rr
-            val textWidth = labelPaint.measureText(session.name)
-            // Shift by half the difference so the text's midpoint sits at the path midpoint.
-            val hOffset = ((arcLength - textWidth) / 2f).coerceAtLeast(0f)
-            // Move baseline by font metrics so the glyphs sit vertically centered on the band.
-            val fm = labelPaint.fontMetrics
-            val vOffset = -(fm.ascent + fm.descent) / 2f
-            canvas.drawTextOnPath(session.name, path, hOffset, vOffset, labelPaint)
-        }
 
         postInvalidateDelayed(1000)
+    }
+
+
+    private data class GeoPoint(val lon: Float, val lat: Float)
+
+    // Simplified country silhouettes in geographic coordinates; the pixel grid keeps the map crisp at every size.
+    private fun countryPolygon(name: String): List<GeoPoint> = when (name.lowercase(Locale.ROOT)) {
+        "new york" -> listOf(GeoPoint(-125f, 49f), GeoPoint(-123f, 42f), GeoPoint(-117f, 32f), GeoPoint(-108f, 31f), GeoPoint(-97f, 26f), GeoPoint(-82f, 25f), GeoPoint(-80f, 32f), GeoPoint(-67f, 45f), GeoPoint(-82f, 49f))
+        "london" -> listOf(GeoPoint(-8f, 59f), GeoPoint(-6f, 50f), GeoPoint(2f, 50f), GeoPoint(2f, 59f))
+        "frankfurt" -> listOf(GeoPoint(5f, 55f), GeoPoint(6f, 47f), GeoPoint(15f, 47f), GeoPoint(17f, 55f))
+        "tokyo" -> listOf(GeoPoint(129f, 46f), GeoPoint(130f, 31f), GeoPoint(146f, 31f), GeoPoint(146f, 46f))
+        "sydney" -> listOf(GeoPoint(112f, -10f), GeoPoint(113f, -44f), GeoPoint(154f, -44f), GeoPoint(154f, -10f))
+        else -> emptyList()
+    }
+
+    private fun continents(): List<List<GeoPoint>> = listOf(
+        listOf(GeoPoint(-168f, 70f), GeoPoint(-140f, 72f), GeoPoint(-115f, 55f), GeoPoint(-95f, 50f), GeoPoint(-80f, 25f), GeoPoint(-105f, 8f), GeoPoint(-120f, 20f), GeoPoint(-130f, 48f), GeoPoint(-160f, 58f)),
+        listOf(GeoPoint(-80f, 12f), GeoPoint(-48f, 8f), GeoPoint(-35f, -10f), GeoPoint(-52f, -56f), GeoPoint(-72f, -35f)),
+        listOf(GeoPoint(-12f, 72f), GeoPoint(35f, 70f), GeoPoint(55f, 52f), GeoPoint(38f, 35f), GeoPoint(18f, 5f), GeoPoint(-5f, -35f), GeoPoint(-18f, 0f), GeoPoint(-8f, 35f)),
+        listOf(GeoPoint(30f, 70f), GeoPoint(170f, 65f), GeoPoint(145f, 45f), GeoPoint(120f, 20f), GeoPoint(80f, 5f), GeoPoint(55f, 25f), GeoPoint(40f, 45f)),
+        listOf(GeoPoint(112f, -10f), GeoPoint(155f, -12f), GeoPoint(150f, -40f), GeoPoint(115f, -35f))
+    )
+
+    private fun project(point: GeoPoint, cx: Float, cy: Float, r: Float): Pair<Float, Float> {
+        return Pair(cx + point.lon / 180f * r, cy - point.lat / 90f * r)
+    }
+
+    private fun screenToGeo(x: Float, y: Float, cx: Float, cy: Float, r: Float): Pair<Float, Float> {
+        return Pair(((x - cx) / r * 180f).coerceIn(-180f, 180f), (-(y - cy) / r * 90f).coerceIn(-90f, 90f))
+    }
+
+    private fun pointInPolygon(lon: Float, lat: Float, polygon: List<GeoPoint>): Boolean {
+        if (polygon.size < 3) return false
+        var inside = false
+        var j = polygon.lastIndex
+        for (i in polygon.indices) {
+            val a = polygon[i]; val b = polygon[j]
+            if ((a.lat > lat) != (b.lat > lat) &&
+                lon < (b.lon - a.lon) * (lat - a.lat) / ((b.lat - a.lat).takeIf { it != 0f } ?: 0.0001f) + a.lon) inside = !inside
+            j = i
+        }
+        return inside
+    }
+
+    private fun drawPixelWorldMap(canvas: Canvas, cx: Float, cy: Float, r: Float, sessions: List<TradingSessions.Session>, selected: Set<String>, now: ZonedDateTime) {
+        val stepLon = 4.5f
+        val stepLat = 4.5f
+        val solarLon = -now.withZoneSameInstant(ZoneOffset.UTC).hour * 15f - now.minute / 4f
+        val dayColor = if (darkTheme) 0xFF385A59.toInt() else 0xFFF8F0C9.toInt()
+        val nightColor = if (darkTheme) 0xFF142C3B.toInt() else 0xFF78919B.toInt()
+        val landDay = if (darkTheme) 0xFF6D9D8A.toInt() else 0xFFB7C8A8.toInt()
+        val landNight = if (darkTheme) 0xFF284B50.toInt() else 0xFF526F78.toInt()
+        face.style = Paint.Style.FILL
+        for (lat in -78..78 step stepLat.toInt()) {
+            for (lon in -178..178 step stepLon.toInt()) {
+                val point = GeoPoint(lon.toFloat(), lat.toFloat())
+                val p = project(point, cx, cy, r)
+                val dx = p.first - cx; val dy = p.second - cy
+                if (dx * dx + dy * dy > r * r) continue
+                val land = continents().any { pointInPolygon(point.lon, point.lat, it) }
+                val localSolar = ((lon - solarLon + 540f) % 360f) - 180f
+                val daylight = cos(Math.toRadians(localSolar.toDouble())).toFloat() > -sin(Math.toRadians((23.4f * sin(2.0 * Math.PI * (now.dayOfYear - 80) / 365.0)).toDouble())).toFloat()
+                face.color = if (daylight) { if (land) landDay else dayColor } else { if (land) landNight else nightColor }
+                face.alpha = if (land) 245 else 220
+                val dot = r * 0.014f
+                canvas.drawRoundRect(p.first - dot, p.second - dot, p.first + dot, p.second + dot, dot * 0.2f, dot * 0.2f, face)
+            }
+        }
+        // Only enabled sessions receive a luminous outline, matching the user's original reference.
+        sessions.forEach { session ->
+            if (!selected.contains(session.name)) return@forEach
+            val poly = countryPolygon(session.name)
+            if (poly.size < 3) return@forEach
+            val path = Path()
+            poly.forEachIndexed { i, pt ->
+                val xy = project(pt, cx, cy, r)
+                if (i == 0) path.moveTo(xy.first, xy.second) else path.lineTo(xy.first, xy.second)
+            }
+            path.close()
+            sessionPaint.style = Paint.Style.STROKE
+            sessionPaint.strokeWidth = u(2.2f)
+            sessionPaint.strokeJoin = android.graphics.Paint.Join.ROUND
+            sessionPaint.color = session.color
+            sessionPaint.alpha = 65
+            sessionPaint.setShadowLayer(u(5f), 0f, 0f, session.color)
+            canvas.drawPath(path, sessionPaint)
+            sessionPaint.clearShadowLayer()
+            sessionPaint.strokeWidth = u(1.25f)
+            sessionPaint.alpha = 255
+            canvas.drawPath(path, sessionPaint)
+        }
+        sessionPaint.style = Paint.Style.STROKE
     }
 
     private data class CandleState(val progress: Float, val remainingSeconds: Long)
@@ -236,31 +296,12 @@ class AnalogClockView(
         val distance = sqrt(dx * dx + dy * dy)
         val size = min(width, height).toFloat()
         val radius = (size / 2f - u(24f)).coerceAtLeast(u(1f))
-        val bandBase = radius * 0.76f
-        val bandGap = radius * 0.115f
-        val bandWidth = radius * 0.090f
-
         val sessions = TradingSessions.sessions
-        var hitIndex = -1
-        var hitDistance = Float.MAX_VALUE
-        sessions.forEachIndexed { index, _ ->
-            val visualIndex = sessions.lastIndex - index
-            val rr = bandBase - visualIndex * bandGap
-            val d = kotlin.math.abs(distance - rr)
-            if (d <= bandWidth * 1.7f && d < hitDistance) {
-                hitDistance = d
-                hitIndex = index
-            }
-        }
-
-        if (hitIndex >= 0) {
-            val angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat() + 90f
-            var hour = angle / 15f
-            while (hour < 0f) hour += 24f
-            while (hour >= 24f) hour -= 24f
-            val session = sessions[hitIndex]
-            val local = sessionLocalInterval(session, ZonedDateTime.now(TradingSessions.displayZone(context)))
-            if (isHourInRange(hour, local.first, local.second)) {
+        val mapRadius = radius * 0.84f
+        if (distance <= mapRadius) {
+            val geo = screenToGeo(event.x, event.y, cx, cy, mapRadius)
+            val session = sessions.firstOrNull { countryPolygon(it.name).let { polygon -> pointInPolygon(geo.first, geo.second, polygon) } }
+            if (session != null) {
                 onSessionToggle(session.name)
                 return true
             }
