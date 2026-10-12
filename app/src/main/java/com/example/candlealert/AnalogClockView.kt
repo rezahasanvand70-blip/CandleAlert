@@ -250,8 +250,8 @@ class AnalogClockView(
         face.style = Paint.Style.FILL
 
         // Fine square pixels keep coastlines recognizable at phone-clock scale.
-        var lat = -78.0
-        while (lat <= 78.0) {
+        var lat = -80.0
+        while (lat <= 82.0) {
             var lon = -178.2
             while (lon <= 178.2) {
                 val point = GeoPoint(lon.toFloat(), lat.toFloat())
@@ -275,7 +275,7 @@ class AnalogClockView(
                     face.color = color
                     face.alpha = if (isLand) 255 else 225
                     val dotX = r * 0.0105f
-                    val dotY = r * 0.0052f
+                    val dotY = r * 0.0095f
                     canvas.drawRect(p.first - dotX, p.second - dotY, p.first + dotX, p.second + dotY, face)
                 }
                 lon += 3.6
