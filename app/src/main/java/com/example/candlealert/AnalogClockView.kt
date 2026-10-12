@@ -136,6 +136,14 @@ class AnalogClockView(
         drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, u(7f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
         drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
         drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), 0xFFC5A15A.toInt())
+        // A defined center pivot visually joins the three hands and keeps their intersection crisp.
+        center.style = Paint.Style.FILL
+        center.color = if (darkTheme) 0xFF0E1B1A.toInt() else 0xFFFFFEFA.toInt()
+        canvas.drawCircle(cx, cy, u(8f), center)
+        center.color = accent
+        canvas.drawCircle(cx, cy, u(4.1f), center)
+        center.color = if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt()
+        canvas.drawCircle(cx, cy, u(1.5f), center)
 
         // Digital time and candle countdown are shown in the compact strip below the dial.
 
@@ -270,8 +278,8 @@ class AnalogClockView(
                 color = session.color
                 alpha = if (enabled) 52 else 18
             }
-            val markerRadius = if (enabled) u(7.5f) else u(5.5f)
-            canvas.drawCircle(xy.first, xy.second, markerRadius * 1.8f, halo)
+            val markerRadius = if (enabled) u(4.2f) else u(3.5f)
+            canvas.drawCircle(xy.first, xy.second, markerRadius * 1.45f, halo)
             sessionPaint.style = Paint.Style.STROKE
             sessionPaint.color = session.color
             sessionPaint.strokeWidth = u(1.25f)
@@ -280,7 +288,7 @@ class AnalogClockView(
             sessionPaint.style = Paint.Style.FILL
             sessionPaint.color = session.color
             sessionPaint.alpha = if (enabled) 255 else 150
-            canvas.drawCircle(xy.first, xy.second, u(2.5f), sessionPaint)
+            canvas.drawCircle(xy.first, xy.second, u(1.8f), sessionPaint)
         }
         sessionPaint.style = Paint.Style.STROKE
     }
