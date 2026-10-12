@@ -19,8 +19,10 @@ import org.json.JSONObject
 object GoogleSheetsApi {
     const val REQUEST_CODE = 7001
     private const val SCOPE = "https://www.googleapis.com/auth/spreadsheets"
+    private const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly"
 
-    private fun request() = AuthorizationRequest.builder().setRequestedScopes(listOf(Scope(SCOPE))).build()
+    private fun request() = AuthorizationRequest.builder()
+        .setRequestedScopes(listOf(Scope(SCOPE), Scope(DRIVE_SCOPE))).build()
 
     @Volatile var lastError: String = ""
 
@@ -72,6 +74,27 @@ object GoogleSheetsApi {
         }
     }
     data class CreatedSheet(val id: String, val url: String)
+    data class SheetLookup(val checked: Boolean, val sheet: CreatedSheet?)
+
+    fun findJournalSheet(token: String): SheetLookup {
+        val query = "name = 'Candle Alert Journal' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+        val url = "https://www.googleapis.com/drive/v3/files?q=" + URLEncoder.encode(query, "UTF-8") +
+            "&pageSize=100&orderBy=modifiedTime%20desc&fields=" +
+            URLEncoder.encode("files(id,name,webViewLink,modifiedTime)", "UTF-8")
+        val response = request("GET", url, token, null) ?: return SheetLookup(false, null)
+        return try {
+            val files = JSONObject(response).optJSONArray("files") ?: JSONArray()
+            if (files.length() == 0) SheetLookup(true, null) else {
+                val file = files.getJSONObject(0)
+                val id = file.optString("id")
+                val link = file.optString("webViewLink").ifBlank { "https://docs.google.com/spreadsheets/d/$id/edit" }
+                SheetLookup(id.isNotBlank(), if (id.isNotBlank()) CreatedSheet(id, link) else null)
+            }
+        } catch (e: Exception) {
+            lastError = "Could not read Google Drive journal search results: " + (e.message ?: e.javaClass.simpleName)
+            SheetLookup(false, null)
+        }
+    }
 
     fun createJournalSheet(token: String): CreatedSheet? {
         val body = JSONObject().apply {
