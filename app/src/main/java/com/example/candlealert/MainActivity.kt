@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
         val result = GoogleSheetsApi.handleAuthorizationResult(this, data)
         if (result?.accessToken?.isNullOrBlank() == false) {
             val id = prefs.getString("google_sheets_id", "") ?: ""
-            if (id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
+            if (id.isBlank()) googleSheetsFindOrCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
         } else {
             val message = GoogleSheetsApi.lastError.ifBlank {
                 if (resultCode == RESULT_CANCELED) "Google authorization was cancelled or denied." else "Google authorization failed."
@@ -680,6 +680,30 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun googleSheetsFindOrCreateAfterAuth(result: AuthorizationResult) {
+        val token = result.accessToken ?: return
+        Thread {
+            val lookup = GoogleSheetsApi.findJournalSheet(token)
+            runOnUiThread {
+                if (!lookup.checked) {
+                    val msg = GoogleSheetsApi.lastError.ifBlank { "Could not check Google Drive for an existing journal." }
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                    showGoogleSheetsSettings()
+                } else if (lookup.sheet != null) {
+                    val existing = lookup.sheet
+                    prefs.edit().putString("google_sheets_id", existing.id)
+                        .putString("google_sheets_url", existing.url)
+                        .putBoolean("google_sheets_connected", true).apply()
+                    Toast.makeText(this, "Existing Candle Alert Journal found. Reusing it.", Toast.LENGTH_LONG).show()
+                    googleSheetsSyncAfterAuth(result)
+                    showGoogleSheetsSettings()
+                } else {
+                    googleSheetsCreateAfterAuth(result)
+                }
+            }
+        }.start()
+    }
+
     private fun googleSheetsCreateAfterAuth(result: AuthorizationResult) {
         val token = result.accessToken ?: return
         Thread {
@@ -764,7 +788,9 @@ class MainActivity : AppCompatActivity() {
                 return@requestAuthorization
             }
             val id = prefs.getString("google_sheets_id", "") ?: ""
-            if (createIfMissing || id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
+            if (createIfMissing) googleSheetsCreateAfterAuth(result)
+            else if (id.isBlank()) googleSheetsFindOrCreateAfterAuth(result)
+            else googleSheetsSyncAfterAuth(result)
         }
     }
 
@@ -1746,9 +1772,9 @@ class MainActivity : AppCompatActivity() {
     private var economicLoading = false
     private var economicAttempted = false
     private var economicError: String? = null
-    private var economicDays = 7
-    private var economicImpact = "All impact"
-    private var economicCountry = "All countries"
+    private var economicDays = prefs.getInt("news_filter_days", 7).let { saved -> if (saved in listOf(1, 7, 14, 30)) saved else 7 }
+    private var economicImpact = prefs.getString("news_filter_impact", "All impact") ?: "All impact"
+    private var economicCountry = prefs.getString("news_filter_country", "All countries") ?: "All countries"
 
     private fun eventRegionLabel(event: EconomicEvent): String {
         val country = event.country.trim().lowercase(Locale.US)
@@ -1821,11 +1847,13 @@ class MainActivity : AppCompatActivity() {
         val dayOptions = listOf("Today" to 1, "7 days" to 7, "14 days" to 14, "30 days" to 30)
         val daySpinner = filterSpinner(dayOptions.map { it.first }, dayOptions.firstOrNull { it.second == economicDays }?.first ?: "7 days") {
             economicDays = dayOptions.firstOrNull { pair -> pair.first == it }?.second ?: 7
+            prefs.edit().putInt("news_filter_days", economicDays).apply()
             showEconomicCalendar()
         }
         val impactOptions = listOf("All impact", "High", "Medium", "Low")
         val impactSpinner = filterSpinner(impactOptions, economicImpact) {
             economicImpact = it
+            prefs.edit().putString("news_filter_impact", economicImpact).apply()
             showEconomicCalendar()
         }
         filterRow.addView(daySpinner, lp(0, 48).apply { weight = 1f; setMargins(0, 0, dp(4), 0) })
@@ -1834,6 +1862,7 @@ class MainActivity : AppCompatActivity() {
         val countries = listOf("All countries") + economicEvents.map { eventRegionLabel(it) }.distinct().sorted()
         val countrySpinner = filterSpinner(countries, economicCountry) {
             economicCountry = it
+            prefs.edit().putString("news_filter_country", economicCountry).apply()
             showEconomicCalendar()
         }
         controls.addView(countrySpinner, lp(-1, 48))
