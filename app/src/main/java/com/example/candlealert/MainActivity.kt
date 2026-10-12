@@ -1848,12 +1848,21 @@ class MainActivity : AppCompatActivity() {
         val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         fun filterSpinner(options: List<String>, selected: String, changed: (String) -> Unit): Spinner {
             val spinner = Spinner(this)
-            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, options)
-            spinner.setSelection(options.indexOf(selected).coerceAtLeast(0))
+            // Keep a saved selection in the adapter even when the latest feed does not
+            // currently contain that region. Otherwise Spinner falls back to index 0
+            // ("All countries") and its initial callback overwrites the user's choice.
+            val spinnerOptions = if (selected in options) options else listOf(selected) + options
+            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, spinnerOptions)
+            spinner.setSelection(spinnerOptions.indexOf(selected).coerceAtLeast(0))
+            var initialSelection = true
             spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val value = options.getOrNull(position) ?: return
+                    val value = spinnerOptions.getOrNull(position) ?: return
+                    if (initialSelection) {
+                        initialSelection = false
+                        return
+                    }
                     if (value != selected) changed(value)
                 }
             }
