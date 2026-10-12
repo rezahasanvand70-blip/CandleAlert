@@ -146,29 +146,36 @@ class AnalogClockView(
     private data class GeoPoint(val lon: Float, val lat: Float)
 
     // Simplified country silhouettes in geographic coordinates; the pixel grid keeps the map crisp at every size.
-    private fun countryPolygon(name: String): List<GeoPoint> = when (name.lowercase(Locale.ROOT)) {
-        "new york" -> listOf(GeoPoint(-125f, 49f), GeoPoint(-123f, 42f), GeoPoint(-117f, 32f), GeoPoint(-108f, 31f), GeoPoint(-97f, 26f), GeoPoint(-82f, 25f), GeoPoint(-80f, 32f), GeoPoint(-67f, 45f), GeoPoint(-82f, 49f))
-        "london" -> listOf(GeoPoint(-8f, 59f), GeoPoint(-6f, 50f), GeoPoint(2f, 50f), GeoPoint(2f, 59f))
-        "frankfurt" -> listOf(GeoPoint(5f, 55f), GeoPoint(6f, 47f), GeoPoint(15f, 47f), GeoPoint(17f, 55f))
-        "tokyo" -> listOf(GeoPoint(129f, 46f), GeoPoint(130f, 31f), GeoPoint(146f, 31f), GeoPoint(146f, 46f))
-        "sydney" -> listOf(GeoPoint(112f, -10f), GeoPoint(113f, -44f), GeoPoint(154f, -44f), GeoPoint(154f, -10f))
-        else -> emptyList()
-    }
-
+    // More recognizable world silhouettes, with major peninsulas and islands separated.
     private fun continents(): List<List<GeoPoint>> = listOf(
-        listOf(GeoPoint(-168f, 70f), GeoPoint(-140f, 72f), GeoPoint(-115f, 55f), GeoPoint(-95f, 50f), GeoPoint(-80f, 25f), GeoPoint(-105f, 8f), GeoPoint(-120f, 20f), GeoPoint(-130f, 48f), GeoPoint(-160f, 58f)),
-        listOf(GeoPoint(-80f, 12f), GeoPoint(-48f, 8f), GeoPoint(-35f, -10f), GeoPoint(-52f, -56f), GeoPoint(-72f, -35f)),
-        listOf(GeoPoint(-12f, 72f), GeoPoint(35f, 70f), GeoPoint(55f, 52f), GeoPoint(38f, 35f), GeoPoint(18f, 5f), GeoPoint(-5f, -35f), GeoPoint(-18f, 0f), GeoPoint(-8f, 35f)),
-        listOf(GeoPoint(30f, 70f), GeoPoint(170f, 65f), GeoPoint(145f, 45f), GeoPoint(120f, 20f), GeoPoint(80f, 5f), GeoPoint(55f, 25f), GeoPoint(40f, 45f)),
-        listOf(GeoPoint(112f, -10f), GeoPoint(155f, -12f), GeoPoint(150f, -40f), GeoPoint(115f, -35f))
+        listOf(GeoPoint(-168f,66f),GeoPoint(-155f,71f),GeoPoint(-137f,60f),GeoPoint(-128f,54f),GeoPoint(-124f,48f),GeoPoint(-124f,40f),GeoPoint(-117f,32f),GeoPoint(-108f,23f),GeoPoint(-98f,17f),GeoPoint(-83f,9f),GeoPoint(-77f,18f),GeoPoint(-81f,25f),GeoPoint(-97f,29f),GeoPoint(-105f,42f),GeoPoint(-119f,50f),GeoPoint(-130f,55f),GeoPoint(-145f,60f),GeoPoint(-160f,60f)),
+        listOf(GeoPoint(-53f,83f),GeoPoint(-27f,77f),GeoPoint(-20f,68f),GeoPoint(-43f,59f),GeoPoint(-58f,65f),GeoPoint(-66f,74f)),
+        listOf(GeoPoint(-97f,18f),GeoPoint(-88f,21f),GeoPoint(-82f,15f),GeoPoint(-77f,8f),GeoPoint(-83f,7f),GeoPoint(-91f,14f)),
+        listOf(GeoPoint(-81f,12f),GeoPoint(-70f,10f),GeoPoint(-60f,6f),GeoPoint(-50f,-2f),GeoPoint(-35f,-8f),GeoPoint(-40f,-22f),GeoPoint(-50f,-35f),GeoPoint(-68f,-56f),GeoPoint(-75f,-40f),GeoPoint(-78f,-20f)),
+        listOf(GeoPoint(-10f,36f),GeoPoint(-10f,44f),GeoPoint(-9f,54f),GeoPoint(-5f,58f),GeoPoint(3f,60f),GeoPoint(15f,70f),GeoPoint(32f,71f),GeoPoint(48f,60f),GeoPoint(60f,65f),GeoPoint(80f,72f),GeoPoint(105f,76f),GeoPoint(130f,70f),GeoPoint(160f,60f),GeoPoint(179f,60f),GeoPoint(160f,50f),GeoPoint(145f,40f),GeoPoint(130f,30f),GeoPoint(120f,20f),GeoPoint(108f,10f),GeoPoint(100f,5f),GeoPoint(80f,8f),GeoPoint(70f,20f),GeoPoint(60f,25f),GeoPoint(50f,30f),GeoPoint(40f,40f),GeoPoint(30f,30f),GeoPoint(20f,30f),GeoPoint(10f,30f),GeoPoint(0f,35f)),
+        listOf(GeoPoint(35f,32f),GeoPoint(50f,30f),GeoPoint(56f,20f),GeoPoint(40f,12f),GeoPoint(30f,18f)),
+        listOf(GeoPoint(-17f,37f),GeoPoint(0f,36f),GeoPoint(12f,33f),GeoPoint(32f,31f),GeoPoint(43f,12f),GeoPoint(51f,11f),GeoPoint(40f,-5f),GeoPoint(32f,-20f),GeoPoint(20f,-35f),GeoPoint(10f,-34f),GeoPoint(-1f,-20f),GeoPoint(-12f,5f),GeoPoint(-17f,20f)),
+        listOf(GeoPoint(68f,24f),GeoPoint(88f,28f),GeoPoint(93f,20f),GeoPoint(105f,8f),GeoPoint(98f,1f),GeoPoint(80f,7f),GeoPoint(70f,15f)),
+        listOf(GeoPoint(130f,33f),GeoPoint(135f,30f),GeoPoint(142f,38f),GeoPoint(145f,44f),GeoPoint(140f,45f),GeoPoint(134f,38f)),
+        listOf(GeoPoint(95f,5f),GeoPoint(110f,0f),GeoPoint(120f,-7f),GeoPoint(130f,-5f),GeoPoint(125f,2f),GeoPoint(115f,8f),GeoPoint(105f,8f)),
+        listOf(GeoPoint(120f,18f),GeoPoint(126f,8f),GeoPoint(123f,5f),GeoPoint(119f,12f)),
+        listOf(GeoPoint(113f,-11f),GeoPoint(130f,-12f),GeoPoint(145f,-15f),GeoPoint(154f,-28f),GeoPoint(145f,-39f),GeoPoint(131f,-35f),GeoPoint(115f,-33f)),
+        listOf(GeoPoint(47f,-13f),GeoPoint(50f,-17f),GeoPoint(49f,-25f),GeoPoint(44f,-22f))
     )
 
-    private fun project(point: GeoPoint, cx: Float, cy: Float, r: Float): Pair<Float, Float> {
-        return Pair(cx + point.lon / 180f * r, cy - point.lat / 90f * r)
-    }
+    private fun project(point: GeoPoint, cx: Float, cy: Float, r: Float): Pair<Float, Float> =
+        Pair(cx + point.lon / 180f * r, cy - point.lat / 90f * r)
 
-    private fun screenToGeo(x: Float, y: Float, cx: Float, cy: Float, r: Float): Pair<Float, Float> {
-        return Pair(((x - cx) / r * 180f).coerceIn(-180f, 180f), (-(y - cy) / r * 90f).coerceIn(-90f, 90f))
+    private fun screenToGeo(x: Float, y: Float, cx: Float, cy: Float, r: Float): Pair<Float, Float> =
+        Pair(((x - cx) / r * 180f).coerceIn(-180f, 180f), (-(y - cy) / r * 90f).coerceIn(-90f, 90f))
+
+    private fun sessionLocation(name: String): GeoPoint = when (name.lowercase(Locale.ROOT)) {
+        "new york" -> GeoPoint(-74.0f, 40.7f)
+        "london" -> GeoPoint(-0.12f, 51.5f)
+        "frankfurt" -> GeoPoint(8.68f, 50.1f)
+        "tokyo" -> GeoPoint(139.7f, 35.7f)
+        "sydney" -> GeoPoint(151.2f, -33.9f)
+        else -> GeoPoint(0f, 0f)
     }
 
     private fun pointInPolygon(lon: Float, lat: Float, polygon: List<GeoPoint>): Boolean {
@@ -232,20 +239,21 @@ class AnalogClockView(
     }
 
     private fun drawPixelWorldMap(canvas: Canvas, cx: Float, cy: Float, r: Float, sessions: List<TradingSessions.Session>, selected: Set<String>, now: ZonedDateTime) {
-        val dayOcean = if (darkTheme) 0xFF385A59.toInt() else 0xFFF8F0C9.toInt()
-        val nightOcean = if (darkTheme) 0xFF142C3B.toInt() else 0xFF78919B.toInt()
-        val dayLand = if (darkTheme) 0xFF6D9D8A.toInt() else 0xFFB7C8A8.toInt()
-        val nightLand = if (darkTheme) 0xFF284B50.toInt() else 0xFF526F78.toInt()
-        val twilightOcean = if (darkTheme) 0xFF28444A.toInt() else 0xFFB0B5A9.toInt()
-        val twilightLand = if (darkTheme) 0xFF426C69.toInt() else 0xFF899D96.toInt()
+        val dayOcean = if (darkTheme) 0xFF294C52.toInt() else 0xFFE7F0E8.toInt()
+        val nightOcean = if (darkTheme) 0xFF142734.toInt() else 0xFF9BAEB7.toInt()
+        val dayLand = if (darkTheme) 0xFF8DB8A0.toInt() else 0xFF729B7A.toInt()
+        val nightLand = if (darkTheme) 0xFF31545A.toInt() else 0xFF526F7B.toInt()
+        val twilightOcean = if (darkTheme) 0xFF203D47.toInt() else 0xFFC5C8B6.toInt()
+        val twilightLand = if (darkTheme) 0xFF527A76.toInt() else 0xFF9AAE9A.toInt()
         val solar = solarPosition(now.toInstant())
         val landShapes = continents()
-
         face.style = Paint.Style.FILL
+
+        // Fine square pixels keep coastlines recognizable at phone-clock scale.
         var lat = -78.0
         while (lat <= 78.0) {
-            var lon = -178.0
-            while (lon <= 178.0) {
+            var lon = -178.2
+            while (lon <= 178.2) {
                 val point = GeoPoint(lon.toFloat(), lat.toFloat())
                 val p = project(point, cx, cy, r)
                 val dx = p.first - cx
@@ -254,8 +262,6 @@ class AnalogClockView(
                     val isLand = landShapes.any { pointInPolygon(point.lon, point.lat, it) }
                     val latitudeRad = Math.toRadians(lat)
                     val longitudeDelta = Math.toRadians(lon - solar.subsolarLongitude)
-                    // Dot product between the local surface normal and the Sun direction.
-                    // 0 is the geometric sunrise/sunset terminator; -0.1045 is civil twilight (-6°).
                     val sunElevationCosine = sin(latitudeRad) * sin(solar.declinationRadians) +
                         cos(latitudeRad) * cos(solar.declinationRadians) * cos(longitudeDelta)
                     val dayColor = if (isLand) dayLand else dayOcean
@@ -267,37 +273,36 @@ class AnalogClockView(
                             ((sunElevationCosine + 0.104528) / 0.104528).toFloat())
                     }
                     face.color = color
-                    face.alpha = if (isLand) 248 else 232
-                    val dot = r * 0.014f
-                    canvas.drawRoundRect(p.first - dot, p.second - dot, p.first + dot, p.second + dot, dot * 0.2f, dot * 0.2f, face)
+                    face.alpha = if (isLand) 255 else 225
+                    val dotX = r * 0.0105f
+                    val dotY = r * 0.0052f
+                    canvas.drawRect(p.first - dotX, p.second - dotY, p.first + dotX, p.second + dotY, face)
                 }
-                lon += 4.5
+                lon += 3.6
             }
-            lat += 4.5
+            lat += 1.8
         }
 
-        // Only enabled sessions receive a luminous outline. Region silhouettes remain schematic.
+        // Show actual financial-session cities instead of misleading country-sized rectangles.
         sessions.forEach { session ->
-            if (!selected.contains(session.name)) return@forEach
-            val poly = countryPolygon(session.name)
-            if (poly.size < 3) return@forEach
-            val path = Path()
-            poly.forEachIndexed { i, pt ->
-                val xy = project(pt, cx, cy, r)
-                if (i == 0) path.moveTo(xy.first, xy.second) else path.lineTo(xy.first, xy.second)
+            val xy = project(sessionLocation(session.name), cx, cy, r)
+            val enabled = selected.contains(session.name)
+            val halo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = session.color
+                alpha = if (enabled) 52 else 18
             }
-            path.close()
+            val markerRadius = if (enabled) u(7.5f) else u(5.5f)
+            canvas.drawCircle(xy.first, xy.second, markerRadius * 1.8f, halo)
             sessionPaint.style = Paint.Style.STROKE
-            sessionPaint.strokeWidth = u(2.2f)
-            sessionPaint.strokeJoin = android.graphics.Paint.Join.ROUND
             sessionPaint.color = session.color
-            sessionPaint.alpha = 65
-            sessionPaint.setShadowLayer(u(5f), 0f, 0f, session.color)
-            canvas.drawPath(path, sessionPaint)
-            sessionPaint.clearShadowLayer()
             sessionPaint.strokeWidth = u(1.25f)
-            sessionPaint.alpha = 255
-            canvas.drawPath(path, sessionPaint)
+            sessionPaint.alpha = if (enabled) 255 else 115
+            canvas.drawCircle(xy.first, xy.second, markerRadius, sessionPaint)
+            sessionPaint.style = Paint.Style.FILL
+            sessionPaint.color = session.color
+            sessionPaint.alpha = if (enabled) 255 else 150
+            canvas.drawCircle(xy.first, xy.second, u(2.5f), sessionPaint)
         }
         sessionPaint.style = Paint.Style.STROKE
     }
@@ -359,21 +364,20 @@ class AnalogClockView(
         if (event.action != MotionEvent.ACTION_UP) return true
         val cx = width / 2f
         val cy = height / 2f
-        val dx = event.x - cx
-        val dy = event.y - cy
-        val distance = sqrt(dx * dx + dy * dy)
         val size = min(width, height).toFloat()
         val radius = (size / 2f - u(24f)).coerceAtLeast(u(1f))
-        val sessions = TradingSessions.sessions
         val mapRadius = radius * 0.84f
-        if (distance <= mapRadius) {
-            val geo = screenToGeo(event.x, event.y, cx, cy, mapRadius)
-            val session = sessions.firstOrNull { countryPolygon(it.name).let { polygon -> pointInPolygon(geo.first, geo.second, polygon) } }
-            if (session != null) {
-                onSessionToggle(session.name)
-                return true
-            }
-        }
+        val hitRadius = u(22f)
+        val hit = TradingSessions.sessions.map { session ->
+            val p = project(sessionLocation(session.name), cx, cy, mapRadius)
+            Triple(session, p.first, p.second)
+        }.map { (session, x, y) ->
+            val dx = event.x - x
+            val dy = event.y - y
+            Triple(session, x, y) to (dx * dx + dy * dy)
+        }.filter { it.second <= hitRadius * hitRadius }
+            .minByOrNull { it.second }
+        if (hit != null) onSessionToggle(hit.first.first.name)
         return true
     }
 
