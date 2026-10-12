@@ -58,8 +58,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(b: Bundle?) {
-        applyNightModePreference()
         super.onCreate(b)
+        applyNightModePreference()
         applyFreshInstallDefaults()
         applySystemBars()
         showHome()
