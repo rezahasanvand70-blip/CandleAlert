@@ -89,7 +89,7 @@ object GoogleSheetsApi {
 
     fun syncJournal(token: String, spreadsheetId: String, trades: List<List<String>>, initial: String, deposits: String, withdrawals: String): Boolean {
         val tradeRows = JSONArray().apply {
-            put(JSONArray(listOf("Trade ID","Status","Symbol","Direction","Entry Time","Entry","SL","TP","Volume","Exit Time","Duration","Exit","Gross P/L","Swap Cost","Commission Cost","Exit Reason","Notes","Net P/L After Costs")))
+            put(JSONArray(listOf("Trade ID","Status","Symbol","Direction","Entry Time","Entry","SL","TP","Volume","Exit Time","Duration","Exit","Gross P/L","Swap (signed)","Commission Cost","Exit Reason","Entry Notes","Exit Notes","Net P/L After Costs")))
             trades.forEach { put(JSONArray(it)) }
         }
         val accountRows = JSONArray().apply {
@@ -98,19 +98,19 @@ object GoogleSheetsApi {
             put(JSONArray(listOf("Deposits", deposits)))
             put(JSONArray(listOf("Withdrawals", withdrawals)))
         }
-        val clearBody = JSONObject().put("ranges", JSONArray().put("Trades!A:R").put("Account!A:B"))
+        val clearBody = JSONObject().put("ranges", JSONArray().put("Trades!A:S").put("Account!A:B"))
         if (request("POST", "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values:batchClear", token, clearBody.toString()) == null) return false
         val batch = JSONObject().apply {
             put("valueInputOption", "USER_ENTERED")
             put("data", JSONArray()
-                .put(JSONObject().put("range", "Trades!A1:R${tradeRows.length()}").put("majorDimension", "ROWS").put("values", tradeRows))
+                .put(JSONObject().put("range", "Trades!A1:S${tradeRows.length()}").put("majorDimension", "ROWS").put("values", tradeRows))
                 .put(JSONObject().put("range", "Account!A1:B${accountRows.length()}").put("majorDimension", "ROWS").put("values", accountRows)))
         }
         return request("POST", "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values:batchUpdate", token, batch.toString()) != null
     }
 
     fun readJournal(token: String, spreadsheetId: String): JSONObject? {
-        val encoded = URLEncoder.encode("Trades!A1:R", "UTF-8")
+        val encoded = URLEncoder.encode("Trades!A1:S", "UTF-8")
         val response = request("GET", "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/$encoded", token, null) ?: return null
         return try { JSONObject(response) } catch (_: Exception) { null }
     }
