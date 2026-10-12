@@ -506,7 +506,8 @@ class AnalogClockView(
         val cx = width / 2f
         val cy = height / 2f
         val size = min(width, height).toFloat()
-        val radius = (size / 2f - u(24f)).coerceAtLeast(u(1f))
+        // Keep hit-test geometry exactly aligned with the dial and visible marker positions.
+        val radius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
         val mapRadius = radius * 0.84f
         val hitRadius = u(22f)
         val hit = TradingSessions.sessions.map { session ->
