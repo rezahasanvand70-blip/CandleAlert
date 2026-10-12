@@ -45,6 +45,16 @@ class MainActivity : AppCompatActivity() {
     private var computerClockView: TextView? = null
     private var candleCountdownView: TextView? = null
     private var ticker: Runnable? = null
+    private data class MarketCardRef(
+        val session: TradingSessions.Session,
+        val timeView: TextView,
+        val statusView: TextView,
+        val alertView: TextView,
+        val card: View,
+        var lastOpen: Boolean? = null,
+        var lastAlertSelected: Boolean? = null
+    )
+    private var marketCardRefs: List<MarketCardRef> = emptyList()
     private var settingsVisible = false
     private var settingsSubpageVisible = false
 
@@ -310,6 +320,96 @@ class MainActivity : AppCompatActivity() {
             setMargins(dp(0), dp(2), dp(0), dp(12))
         })
 
+        // Live market panel: actual city-local time, weekday open/closed state, and
+        // alert selection are presented separately so these states cannot be confused.
+        val marketHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(2), 0, dp(2), dp(6))
+        }
+        marketHeader.addView(text("MARKET SESSIONS", 11f, muted).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+        }, lp(0, -2).apply { weight = 1f })
+        marketHeader.addView(text("LIVE · LOCAL TIME", 8f, muted).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+        })
+        content.addView(marketHeader)
+
+        val marketRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val marketRefs = mutableListOf<MarketCardRef>()
+        val selectedSessionNames = prefs.getStringSet(
+            "sessions",
+            setOf("Sydney", "Tokyo", "Frankfurt", "London", "New York")
+        ) ?: emptySet()
+        fun marketCode(name: String) = when (name) {
+            "Sydney" -> "SYD"
+            "Tokyo" -> "TYO"
+            "Frankfurt" -> "FRA"
+            "London" -> "LDN"
+            "New York" -> "NY"
+            else -> name.take(3).uppercase(Locale.ROOT)
+        }
+        TradingSessions.sessions.forEach { session ->
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(2), dp(4), dp(2), dp(3))
+                minimumHeight = dp(69)
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(cardColor)
+                    cornerRadius = dp(11f)
+                    setStroke(dp(1), line)
+                }
+            }
+            val code = text(marketCode(session.name), 8.5f, session.color).apply {
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                maxLines = 1
+                includeFontPadding = false
+            }
+            val localTime = text("--:--", 9f, textColor).apply {
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                maxLines = 1
+                includeFontPadding = false
+                setPadding(0, dp(4), 0, dp(2))
+            }
+            val openState = text("CLOSED", 6.3f, muted).apply {
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                maxLines = 1
+                includeFontPadding = false
+            }
+            val alertState = text(
+                if (selectedSessionNames.contains(session.name)) "ALERT ON" else "ALERT OFF",
+                5.8f,
+                if (selectedSessionNames.contains(session.name)) accent else muted
+            ).apply {
+                gravity = Gravity.CENTER
+                maxLines = 1
+                includeFontPadding = false
+                setPadding(0, dp(3), 0, 0)
+            }
+            card.addView(code, lp(-1, dp(12)))
+            card.addView(localTime, lp(-1, dp(15)))
+            card.addView(openState, lp(-1, dp(10)))
+            card.addView(alertState, lp(-1, dp(9)))
+            marketRow.addView(card, lp(0, 0).apply {
+                weight = 1f
+                setMargins(dp(2), 0, dp(2), 0)
+            })
+            marketRefs.add(MarketCardRef(session, localTime, openState, alertState, card))
+        }
+        marketCardRefs = marketRefs
+        content.addView(marketRow, lp(-1, -2).apply {
+            setMargins(0, 0, 0, dp(13))
+        })
+
         val tf = prefs.getInt("tf", 60)
         val tfLabel = if (tf >= 60) (tf / 60).toString() + "H" else tf.toString() + "M"
         val market = when (prefs.getInt("market", 0)) {
@@ -395,6 +495,40 @@ class MainActivity : AppCompatActivity() {
                 if (isFinishing) return
                 val instant = java.time.ZonedDateTime.now(TradingSessions.displayZone(this@MainActivity))
                 computerClockView?.text = String.format(Locale.getDefault(), "%02d:%02d:%02d", instant.hour, instant.minute, instant.second)
+
+                val nowInstant = instant.toInstant()
+                val selectedMarkets = prefs.getStringSet(
+                    "sessions",
+                    setOf("Sydney", "Tokyo", "Frankfurt", "London", "New York")
+                ) ?: emptySet()
+                marketCardRefs.forEach { ref ->
+                    val marketLocalTime = nowInstant.atZone(java.time.ZoneId.of(ref.session.zone))
+                    val localText = String.format(Locale.US, "%02d:%02d", marketLocalTime.hour, marketLocalTime.minute)
+                    if (ref.timeView.text != localText) ref.timeView.text = localText
+
+                    val isOpen = TradingSessions.isOpen(ref.session.name, nowInstant)
+                    if (ref.lastOpen != isOpen) {
+                        ref.lastOpen = isOpen
+                        ref.statusView.text = if (isOpen) "OPEN" else "CLOSED"
+                        ref.statusView.setTextColor(if (isOpen) green else muted)
+                        ref.card.background = android.graphics.drawable.GradientDrawable().apply {
+                            setColor(cardColor)
+                            cornerRadius = dp(11f)
+                            setStroke(dp(1), if (isOpen) ref.session.color else line)
+                        }
+                        ref.card.elevation = if (isOpen) dp(2f) else dp(0f)
+                    }
+
+                    val alertsSelected = selectedMarkets.contains(ref.session.name)
+                    if (ref.lastAlertSelected != alertsSelected) {
+                        ref.lastAlertSelected = alertsSelected
+                        ref.alertView.text = if (alertsSelected) "ALERT ON" else "ALERT OFF"
+                        ref.alertView.setTextColor(if (alertsSelected) accent else muted)
+                    }
+                    ref.card.contentDescription =
+                        "${ref.session.name}; local time $localText; ${if (isOpen) "open" else "closed"}; ${if (alertsSelected) "alerts enabled" else "alerts disabled"}"
+                }
+
                 val tfMinutes = prefs.getInt("tf", 60).coerceAtLeast(1)
                 val marketOpenParts = (prefs.getString("open_market", "00:00") ?: "00:00").split(":")
                 val openHour = marketOpenParts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 0
