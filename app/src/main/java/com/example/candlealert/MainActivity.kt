@@ -395,11 +395,11 @@ class MainActivity : AppCompatActivity() {
                 includeFontPadding = false
                 setPadding(0, dp(3), 0, 0)
             }
-            card.addView(code, lp(-1, dp(12)))
-            card.addView(localTime, lp(-1, dp(15)))
-            card.addView(openState, lp(-1, dp(10)))
-            card.addView(alertState, lp(-1, dp(9)))
-            marketRow.addView(card, lp(0, 0).apply {
+            card.addView(code, lp(-1, 13))
+            card.addView(localTime, lp(-1, 17))
+            card.addView(openState, lp(-1, 10))
+            card.addView(alertState, lp(-1, 10))
+            marketRow.addView(card, lp(0, 69).apply {
                 weight = 1f
                 setMargins(dp(2), 0, dp(2), 0)
             })
