@@ -89,7 +89,7 @@ object GoogleSheetsApi {
 
     fun syncJournal(token: String, spreadsheetId: String, trades: List<List<String>>, initial: String, deposits: String, withdrawals: String): Boolean {
         val tradeRows = JSONArray().apply {
-            put(JSONArray(listOf("Trade ID","Status","Symbol","Direction","Entry Time","Entry","SL","TP","Volume","Exit Time","Exit","Duration","Gross P/L","Swap Cost","Commission Cost","Exit Reason","Notes","Net P/L After Costs")))
+            put(JSONArray(listOf("Trade ID","Status","Symbol","Direction","Entry Time","Entry","SL","TP","Volume","Exit Time","Duration","Exit","Gross P/L","Swap Cost","Commission Cost","Exit Reason","Notes","Net P/L After Costs")))
             trades.forEach { put(JSONArray(it)) }
         }
         val accountRows = JSONArray().apply {
