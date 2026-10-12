@@ -184,31 +184,99 @@ class AnalogClockView(
         return inside
     }
 
+    private data class SolarPosition(val subsolarLongitude: Double, val declinationRadians: Double)
+
+    /**
+     * NOAA-style solar coordinates from the actual UTC instant.
+     * Equation of time corrects the difference between clock time and apparent solar time;
+     * declination accounts for Earth's axial tilt and the date of the year.
+     */
+    private fun solarPosition(instant: Instant): SolarPosition {
+        val julianDay = instant.toEpochMilli() / 86_400_000.0 + 2_440_587.5
+        val t = (julianDay - 2_451_545.0) / 36_525.0
+        val geomMeanLong = ((280.46646 + t * (36_000.76983 + t * 0.0003032)) % 360.0 + 360.0) % 360.0
+        val geomMeanAnomaly = Math.toRadians(357.52911 + t * (35_999.05029 - 0.0001537 * t))
+        val eccentricity = 0.016708634 - t * (0.000042037 + 0.0000001267 * t)
+        val equationCenter = sin(geomMeanAnomaly) * (1.914602 - t * (0.004817 + 0.000014 * t)) +
+            sin(2.0 * geomMeanAnomaly) * (0.019993 - 0.000101 * t) +
+            sin(3.0 * geomMeanAnomaly) * 0.000289
+        val trueLong = geomMeanLong + equationCenter
+        val omega = 125.04 - 1934.136 * t
+        val apparentLong = Math.toRadians(trueLong - 0.00569 - 0.00478 * sin(Math.toRadians(omega)))
+        val meanObliquity = 23.0 + (26.0 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60.0) / 60.0
+        val obliquity = Math.toRadians(meanObliquity + 0.00256 * cos(Math.toRadians(omega)))
+        val declination = kotlin.math.asin(sin(obliquity) * sin(apparentLong))
+
+        val y = kotlin.math.tan(obliquity / 2.0) * kotlin.math.tan(obliquity / 2.0)
+        val l0 = Math.toRadians(geomMeanLong)
+        val equationOfTime = 4.0 * Math.toDegrees(
+            y * sin(2.0 * l0) - 2.0 * eccentricity * sin(geomMeanAnomaly) +
+                4.0 * eccentricity * y * sin(geomMeanAnomaly) * cos(2.0 * l0) -
+                0.5 * y * y * sin(4.0 * l0) -
+                1.25 * eccentricity * eccentricity * sin(2.0 * geomMeanAnomaly)
+        )
+        val utcMinutes = instant.atZone(ZoneOffset.UTC).let { it.hour * 60.0 + it.minute + it.second / 60.0 }
+        var subsolarLon = 180.0 - (utcMinutes + equationOfTime) / 4.0
+        while (subsolarLon > 180.0) subsolarLon -= 360.0
+        while (subsolarLon < -180.0) subsolarLon += 360.0
+        return SolarPosition(subsolarLon, declination)
+    }
+
+    private fun blendColor(a: Int, b: Int, amount: Float): Int {
+        val t = amount.coerceIn(0f, 1f)
+        val inv = 1f - t
+        val red = (((a shr 16) and 0xFF) * inv + ((b shr 16) and 0xFF) * t).toInt()
+        val green = (((a shr 8) and 0xFF) * inv + ((b shr 8) and 0xFF) * t).toInt()
+        val blue = ((a and 0xFF) * inv + (b and 0xFF) * t).toInt()
+        return (0xFF shl 24) or (red shl 16) or (green shl 8) or blue
+    }
+
     private fun drawPixelWorldMap(canvas: Canvas, cx: Float, cy: Float, r: Float, sessions: List<TradingSessions.Session>, selected: Set<String>, now: ZonedDateTime) {
-        val stepLon = 4.5f
-        val stepLat = 4.5f
-        val solarLon = -now.withZoneSameInstant(ZoneOffset.UTC).hour * 15f - now.minute / 4f
-        val dayColor = if (darkTheme) 0xFF385A59.toInt() else 0xFFF8F0C9.toInt()
-        val nightColor = if (darkTheme) 0xFF142C3B.toInt() else 0xFF78919B.toInt()
-        val landDay = if (darkTheme) 0xFF6D9D8A.toInt() else 0xFFB7C8A8.toInt()
-        val landNight = if (darkTheme) 0xFF284B50.toInt() else 0xFF526F78.toInt()
+        val dayOcean = if (darkTheme) 0xFF385A59.toInt() else 0xFFF8F0C9.toInt()
+        val nightOcean = if (darkTheme) 0xFF142C3B.toInt() else 0xFF78919B.toInt()
+        val dayLand = if (darkTheme) 0xFF6D9D8A.toInt() else 0xFFB7C8A8.toInt()
+        val nightLand = if (darkTheme) 0xFF284B50.toInt() else 0xFF526F78.toInt()
+        val twilightOcean = if (darkTheme) 0xFF28444A.toInt() else 0xFFB0B5A9.toInt()
+        val twilightLand = if (darkTheme) 0xFF426C69.toInt() else 0xFF899D96.toInt()
+        val solar = solarPosition(now.toInstant())
+        val landShapes = continents()
+
         face.style = Paint.Style.FILL
-        for (lat in -78..78 step stepLat.toInt()) {
-            for (lon in -178..178 step stepLon.toInt()) {
+        var lat = -78.0
+        while (lat <= 78.0) {
+            var lon = -178.0
+            while (lon <= 178.0) {
                 val point = GeoPoint(lon.toFloat(), lat.toFloat())
                 val p = project(point, cx, cy, r)
-                val dx = p.first - cx; val dy = p.second - cy
-                if (dx * dx + dy * dy > r * r) continue
-                val land = continents().any { pointInPolygon(point.lon, point.lat, it) }
-                val localSolar = ((lon - solarLon + 540f) % 360f) - 180f
-                val daylight = cos(Math.toRadians(localSolar.toDouble())).toFloat() > -sin(Math.toRadians((23.4f * sin(2.0 * Math.PI * (now.dayOfYear - 80) / 365.0)).toDouble())).toFloat()
-                face.color = if (daylight) { if (land) landDay else dayColor } else { if (land) landNight else nightColor }
-                face.alpha = if (land) 245 else 220
-                val dot = r * 0.014f
-                canvas.drawRoundRect(p.first - dot, p.second - dot, p.first + dot, p.second + dot, dot * 0.2f, dot * 0.2f, face)
+                val dx = p.first - cx
+                val dy = p.second - cy
+                if (dx * dx + dy * dy <= r * r) {
+                    val isLand = landShapes.any { pointInPolygon(point.lon, point.lat, it) }
+                    val latitudeRad = Math.toRadians(lat)
+                    val longitudeDelta = Math.toRadians(lon - solar.subsolarLongitude)
+                    // Dot product between the local surface normal and the Sun direction.
+                    // 0 is the geometric sunrise/sunset terminator; -0.1045 is civil twilight (-6°).
+                    val sunElevationCosine = sin(latitudeRad) * sin(solar.declinationRadians) +
+                        cos(latitudeRad) * cos(solar.declinationRadians) * cos(longitudeDelta)
+                    val dayColor = if (isLand) dayLand else dayOcean
+                    val nightColor = if (isLand) nightLand else nightOcean
+                    val color = when {
+                        sunElevationCosine >= 0.0 -> dayColor
+                        sunElevationCosine <= -0.104528 -> nightColor
+                        else -> blendColor(nightColor, if (isLand) twilightLand else twilightOcean,
+                            ((sunElevationCosine + 0.104528) / 0.104528).toFloat())
+                    }
+                    face.color = color
+                    face.alpha = if (isLand) 248 else 232
+                    val dot = r * 0.014f
+                    canvas.drawRoundRect(p.first - dot, p.second - dot, p.first + dot, p.second + dot, dot * 0.2f, dot * 0.2f, face)
+                }
+                lon += 4.5
             }
+            lat += 4.5
         }
-        // Only enabled sessions receive a luminous outline, matching the user's original reference.
+
+        // Only enabled sessions receive a luminous outline. Region silhouettes remain schematic.
         sessions.forEach { session ->
             if (!selected.contains(session.name)) return@forEach
             val poly = countryPolygon(session.name)
