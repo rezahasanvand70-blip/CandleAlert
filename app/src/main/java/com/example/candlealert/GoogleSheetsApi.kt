@@ -89,7 +89,7 @@ object GoogleSheetsApi {
 
     fun syncJournal(token: String, spreadsheetId: String, trades: List<List<String>>, initial: String, deposits: String, withdrawals: String): Boolean {
         val tradeRows = JSONArray().apply {
-            put(JSONArray(listOf("Trade ID","Status","Symbol","Direction","Entry Time","Entry","SL","TP","Volume","Exit Time","Exit","Duration","P/L","Exit Reason","Notes")))
+            put(JSONArray(listOf("Trade ID","Status","Symbol","Direction","Entry Time","Entry","SL","TP","Volume","Exit Time","Exit","Duration","Gross P/L","Swap Cost","Commission Cost","Exit Reason","Notes","Net P/L After Costs")))
             trades.forEach { put(JSONArray(it)) }
         }
         val accountRows = JSONArray().apply {
@@ -98,7 +98,7 @@ object GoogleSheetsApi {
             put(JSONArray(listOf("Deposits", deposits)))
             put(JSONArray(listOf("Withdrawals", withdrawals)))
         }
-        val clearBody = JSONObject().put("ranges", JSONArray().put("Trades!A:O").put("Account!A:B"))
+        val clearBody = JSONObject().put("ranges", JSONArray().put("Trades!A:R").put("Account!A:B"))
         if (request("POST", "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values:batchClear", token, clearBody.toString()) == null) return false
         val batch = JSONObject().apply {
             put("valueInputOption", "USER_ENTERED")
