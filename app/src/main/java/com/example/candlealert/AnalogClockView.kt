@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -41,6 +42,14 @@ class AnalogClockView(
     private val sessionPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val candlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val mapBitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val mapGridPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val mapFramePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val markerLeaderPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val markerHaloPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val markerLabelBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val markerLabelBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val markerLabelTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
         tick.style = Paint.Style.STROKE
@@ -56,6 +65,13 @@ class AnalogClockView(
         sessionPaint.strokeCap = Paint.Cap.BUTT
         labelPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         labelPaint.textAlign = Paint.Align.CENTER
+        markerLabelTextPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        markerLabelTextPaint.textAlign = Paint.Align.CENTER
+        markerHaloPaint.style = Paint.Style.FILL
+        markerLabelBgPaint.style = Paint.Style.FILL
+        markerLabelBorderPaint.style = Paint.Style.STROKE
+        mapGridPaint.style = Paint.Style.STROKE
+        mapFramePaint.style = Paint.Style.STROKE
         candlePaint.style = Paint.Style.STROKE
         candlePaint.strokeCap = Paint.Cap.ROUND
         isFocusable = false
@@ -96,7 +112,7 @@ class AnalogClockView(
         val progressSweep = (candle.progress * 360f).coerceIn(0f, 359.9f)
         canvas.drawArc(RectF(cx - radius - u(7f), cy - radius - u(7f), cx + radius + u(7f), cy + radius + u(7f)), -90f, progressSweep, false, candlePaint)
 
-        drawPixelWorldMap(canvas, cx, cy, radius * 0.84f, sessions, selected, now)
+        drawPixelWorldMap(canvas, cx, cy, radius * 0.84f, now)
 
         // Hour markers are small dots placed outside the numerals, so they never cross the 1–24 labels.
         tick.style = Paint.Style.FILL
@@ -145,6 +161,9 @@ class AnalogClockView(
         center.color = if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt()
         canvas.drawCircle(cx, cy, u(1.5f), center)
 
+        // Foreground markers stay above the clock hands so the financial sessions remain readable.
+        drawMarketMarkers(canvas, cx, cy, radius * 0.84f, sessions, selected, now)
+
         // Digital time and candle countdown are shown in the compact strip below the dial.
 
         // Country labels are kept outside the map to preserve the clean pixel-globe look.
@@ -162,9 +181,47 @@ class AnalogClockView(
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             ?: throw IllegalStateException("World map mask could not be decoded")
     }
+    private val smoothWorldMask: Bitmap by lazy(LazyThreadSafetyMode.NONE) {
+        Bitmap.createScaledBitmap(worldMapMask, 720, 360, true)
+    }
+    private var cachedWorldMap: Bitmap? = null
+    private var cachedWorldMapMinuteKey: Long = Long.MIN_VALUE
 
+    // Equirectangular projection: the full world is displayed at its correct 2:1 aspect ratio.
+    // This keeps all five financial-session cities visible at once.
     private fun project(point: GeoPoint, cx: Float, cy: Float, r: Float): Pair<Float, Float> =
-        Pair(cx + point.lon / 180f * r, cy - point.lat / 90f * r)
+        Pair(cx + point.lon / 180f * r, cy - point.lat / 90f * r * 0.5f)
+
+    private fun markerOffset(name: String): Pair<Float, Float> = when (name) {
+        // These two cities are geographically close and need a small visual separation.
+        "London" -> Pair(-u(7f), -u(4f))
+        "Frankfurt" -> Pair(u(7f), u(5f))
+        else -> Pair(0f, 0f)
+    }
+
+    private fun markerPosition(session: TradingSessions.Session, cx: Float, cy: Float, r: Float): Pair<Float, Float> {
+        val point = project(sessionLocation(session.name), cx, cy, r)
+        val offset = markerOffset(session.name)
+        return Pair(point.first + offset.first, point.second + offset.second)
+    }
+
+    private fun markerCode(name: String): String = when (name) {
+        "New York" -> "NY"
+        "London" -> "LDN"
+        "Frankfurt" -> "FRA"
+        "Tokyo" -> "TYO"
+        "Sydney" -> "SYD"
+        else -> name.take(3).uppercase(Locale.ROOT)
+    }
+
+    private fun markerLabelOffset(name: String): Pair<Float, Float> = when (name) {
+        "New York" -> Pair(u(13f), -u(8f))
+        "London" -> Pair(-u(24f), -u(8f))
+        "Frankfurt" -> Pair(u(18f), u(13f))
+        "Tokyo" -> Pair(-u(23f), -u(8f))
+        "Sydney" -> Pair(-u(25f), u(13f))
+        else -> Pair(u(10f), -u(8f))
+    }
 
     private fun sessionLocation(name: String): GeoPoint = when (name.lowercase(Locale.ROOT)) {
         "new york" -> GeoPoint(-74.0f, 40.7f)
@@ -222,73 +279,171 @@ class AnalogClockView(
         return (0xFF shl 24) or (red shl 16) or (green shl 8) or blue
     }
 
-    private fun drawPixelWorldMap(canvas: Canvas, cx: Float, cy: Float, r: Float, sessions: List<TradingSessions.Session>, selected: Set<String>, now: ZonedDateTime) {
+    private fun worldMapForMinute(instant: Instant): Bitmap {
+        val minuteKey = instant.epochSecond / 60L
+        cachedWorldMap?.let { if (cachedWorldMapMinuteKey == minuteKey) return it }
+
+        val width = 720
+        val height = 360
+        val mask = smoothWorldMask
+        val maskPixels = IntArray(width * height)
+        mask.getPixels(maskPixels, 0, width, 0, 0, width, height)
+
+        val solar = solarPosition(instant)
+        val sinDeclination = sin(solar.declinationRadians)
+        val cosDeclination = cos(solar.declinationRadians)
+        val subSolar = Math.toRadians(solar.subsolarLongitude)
+        val sinSubSolar = sin(subSolar)
+        val cosSubSolar = cos(subSolar)
+
         val dayOcean = if (darkTheme) 0xFF294C52.toInt() else 0xFFE7F0E8.toInt()
         val nightOcean = if (darkTheme) 0xFF142734.toInt() else 0xFF9BAEB7.toInt()
         val dayLand = if (darkTheme) 0xFF8DB8A0.toInt() else 0xFF729B7A.toInt()
         val nightLand = if (darkTheme) 0xFF31545A.toInt() else 0xFF526F7B.toInt()
         val twilightOcean = if (darkTheme) 0xFF203D47.toInt() else 0xFFC5C8B6.toInt()
         val twilightLand = if (darkTheme) 0xFF527A76.toInt() else 0xFF9AAE9A.toInt()
-        val solar = solarPosition(now.toInstant())
-        val worldMask = worldMapMask
-        face.style = Paint.Style.FILL
 
-        // Fine square pixels keep coastlines recognizable at phone-clock scale.
-        var lat = -80.0
-        while (lat <= 82.0) {
-            var lon = -178.2
-            while (lon <= 178.2) {
-                val point = GeoPoint(lon.toFloat(), lat.toFloat())
-                val p = project(point, cx, cy, r)
-                val dx = p.first - cx
-                val dy = p.second - cy
-                if (dx * dx + dy * dy <= r * r) {
-                    val maskX = (((lon + 180.0) / 360.0) * (worldMask.width - 1)).toInt().coerceIn(0, worldMask.width - 1)
-                    val maskY = (((90.0 - lat) / 180.0) * (worldMask.height - 1)).toInt().coerceIn(0, worldMask.height - 1)
-                    val isLand = android.graphics.Color.red(worldMask.getPixel(maskX, maskY)) > 127
-                    val latitudeRad = Math.toRadians(lat)
-                    val longitudeDelta = Math.toRadians(lon - solar.subsolarLongitude)
-                    val sunElevationCosine = sin(latitudeRad) * sin(solar.declinationRadians) +
-                        cos(latitudeRad) * cos(solar.declinationRadians) * cos(longitudeDelta)
-                    val dayColor = if (isLand) dayLand else dayOcean
-                    val nightColor = if (isLand) nightLand else nightOcean
-                    val color = when {
-                        sunElevationCosine >= 0.0 -> dayColor
-                        sunElevationCosine <= -0.104528 -> nightColor
-                        else -> blendColor(nightColor, if (isLand) twilightLand else twilightOcean,
-                            ((sunElevationCosine + 0.104528) / 0.104528).toFloat())
-                    }
-                    face.color = color
-                    face.alpha = if (isLand) 255 else 225
-                    val dotX = r * 0.0105f
-                    val dotY = r * 0.0095f
-                    canvas.drawRect(p.first - dotX, p.second - dotY, p.first + dotX, p.second + dotY, face)
-                }
-                lon += 3.6
-            }
-            lat += 1.8
+        val sinLatitudes = DoubleArray(height)
+        val cosLatitudes = DoubleArray(height)
+        for (y in 0 until height) {
+            val latitude = Math.toRadians(90.0 - y * 180.0 / (height - 1))
+            sinLatitudes[y] = sin(latitude)
+            cosLatitudes[y] = cos(latitude)
+        }
+        val sinLongitudes = DoubleArray(width)
+        val cosLongitudes = DoubleArray(width)
+        for (x in 0 until width) {
+            val longitude = Math.toRadians(-180.0 + x * 360.0 / (width - 1))
+            sinLongitudes[x] = sin(longitude)
+            cosLongitudes[x] = cos(longitude)
         }
 
-        // Show actual financial-session cities instead of misleading country-sized rectangles.
-        sessions.forEach { session ->
-            val xy = project(sessionLocation(session.name), cx, cy, r)
-            val enabled = selected.contains(session.name)
-            val halo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
-                color = session.color
-                alpha = if (enabled) 52 else 18
+        val pixels = IntArray(width * height)
+        for (y in 0 until height) {
+            val sinLat = sinLatitudes[y]
+            val cosLat = cosLatitudes[y]
+            val row = y * width
+            for (x in 0 until width) {
+                val sunElevation = sinLat * sinDeclination +
+                    cosLat * cosDeclination *
+                    (cosLongitudes[x] * cosSubSolar + sinLongitudes[x] * sinSubSolar)
+
+                // The mask has antialiased edges. Blend land and ocean colors instead of
+                // thresholding the coastline into a jagged collection of squares.
+                val landAmount = Color.red(maskPixels[row + x]) / 255f
+                val dayColor = blendColor(dayOcean, dayLand, landAmount)
+                val nightColor = blendColor(nightOcean, nightLand, landAmount)
+                val twilightColor = blendColor(twilightOcean, twilightLand, landAmount)
+                pixels[row + x] = when {
+                    sunElevation >= 0.104528 -> dayColor
+                    sunElevation >= 0.0 -> blendColor(twilightColor, dayColor, (sunElevation / 0.104528).toFloat())
+                    sunElevation > -0.104528 -> blendColor(nightColor, twilightColor, ((sunElevation + 0.104528) / 0.104528).toFloat())
+                    else -> nightColor
+                }
             }
-            val markerRadius = if (enabled) u(4.2f) else u(3.5f)
-            canvas.drawCircle(xy.first, xy.second, markerRadius * 1.45f, halo)
-            sessionPaint.style = Paint.Style.STROKE
-            sessionPaint.color = session.color
-            sessionPaint.strokeWidth = u(1.25f)
-            sessionPaint.alpha = if (enabled) 255 else 115
-            canvas.drawCircle(xy.first, xy.second, markerRadius, sessionPaint)
+        }
+
+        val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        result.setPixels(pixels, 0, width, 0, 0, width, height)
+        cachedWorldMap = result
+        cachedWorldMapMinuteKey = minuteKey
+        return result
+    }
+
+    private fun drawPixelWorldMap(canvas: Canvas, cx: Float, cy: Float, r: Float, now: ZonedDateTime) {
+        val mapRect = RectF(cx - r, cy - r * 0.5f, cx + r, cy + r * 0.5f)
+        val corner = u(5f)
+        val clip = Path().apply { addRoundRect(mapRect, corner, corner, Path.Direction.CW) }
+
+        // A clean, antialiased map panel replaces the old square-by-square drawing.
+        mapFramePaint.style = Paint.Style.FILL
+        mapFramePaint.color = if (darkTheme) 0xFF13242A.toInt() else 0xFFE8EFEB.toInt()
+        canvas.drawRoundRect(mapRect, corner, corner, mapFramePaint)
+        canvas.save()
+        canvas.clipPath(clip)
+        canvas.drawBitmap(worldMapForMinute(now.toInstant()), null, mapRect, mapBitmapPaint)
+
+        // Restrained graticule lines add geographic structure without obscuring coastlines.
+        mapGridPaint.color = if (darkTheme) 0x28FFFFFF else 0x28344742
+        mapGridPaint.strokeWidth = u(0.55f)
+        for (longitude in -120..120 step 60) {
+            val x = mapRect.left + (longitude + 180f) / 360f * mapRect.width()
+            canvas.drawLine(x, mapRect.top, x, mapRect.bottom, mapGridPaint)
+        }
+        for (latitude in -60..60 step 30) {
+            val y = mapRect.top + (90f - latitude) / 180f * mapRect.height()
+            canvas.drawLine(mapRect.left, y, mapRect.right, y, mapGridPaint)
+        }
+        canvas.restore()
+
+        mapFramePaint.style = Paint.Style.STROKE
+        mapFramePaint.strokeWidth = u(0.8f)
+        mapFramePaint.color = if (darkTheme) 0x80597576.toInt() else 0x66FFFFFF
+        canvas.drawRoundRect(mapRect, corner, corner, mapFramePaint)
+    }
+
+    private fun drawMarketMarkers(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        mapRadius: Float,
+        sessions: List<TradingSessions.Session>,
+        selected: Set<String>,
+        now: ZonedDateTime
+    ) {
+        for (session in sessions) {
+            val geographicPoint = project(sessionLocation(session.name), cx, cy, mapRadius)
+            val marker = markerPosition(session, cx, cy, mapRadius)
+            val offset = markerOffset(session.name)
+            val isOpen = TradingSessions.isOpen(session.name, now.toInstant())
+            val alertsEnabled = selected.contains(session.name)
+
+            if (offset.first != 0f || offset.second != 0f) {
+                markerLeaderPaint.color = session.color
+                markerLeaderPaint.alpha = 170
+                markerLeaderPaint.strokeWidth = u(0.9f)
+                canvas.drawLine(geographicPoint.first, geographicPoint.second, marker.first, marker.second, markerLeaderPaint)
+            }
+
+            markerHaloPaint.color = session.color
+            markerHaloPaint.alpha = if (isOpen) 75 else 18
+            canvas.drawCircle(marker.first, marker.second, if (isOpen) u(8.5f) else u(6f), markerHaloPaint)
+
             sessionPaint.style = Paint.Style.FILL
             sessionPaint.color = session.color
-            sessionPaint.alpha = if (enabled) 255 else 150
-            canvas.drawCircle(xy.first, xy.second, u(1.8f), sessionPaint)
+            sessionPaint.alpha = if (isOpen) 255 else 175
+            canvas.drawCircle(marker.first, marker.second, if (isOpen) u(4.1f) else u(3.6f), sessionPaint)
+
+            // A white outline shows alert selection; the colored fill/glow independently
+            // communicates market-open status. These are deliberately two different states.
+            sessionPaint.style = Paint.Style.STROKE
+            sessionPaint.color = if (alertsEnabled) Color.WHITE else session.color
+            sessionPaint.strokeWidth = if (alertsEnabled) u(1.35f) else u(0.9f)
+            sessionPaint.alpha = if (alertsEnabled) 245 else 160
+            canvas.drawCircle(marker.first, marker.second, if (alertsEnabled) u(5.3f) else u(4.4f), sessionPaint)
+
+            val code = markerCode(session.name)
+            markerLabelTextPaint.textSize = u(7.4f)
+            markerLabelTextPaint.color = if (darkTheme) 0xFFF4F7F4.toInt() else 0xFF203631.toInt()
+            val labelOffset = markerLabelOffset(session.name)
+            val labelCenterX = marker.first + labelOffset.first
+            val labelCenterY = marker.second + labelOffset.second
+            val pillWidth = markerLabelTextPaint.measureText(code) + u(8f)
+            val pillHeight = u(15f)
+            val labelRect = RectF(
+                labelCenterX - pillWidth / 2f,
+                labelCenterY - pillHeight / 2f,
+                labelCenterX + pillWidth / 2f,
+                labelCenterY + pillHeight / 2f
+            )
+            markerLabelBgPaint.color = if (darkTheme) 0xE61A2B31.toInt() else 0xEFFFFFFF.toInt()
+            canvas.drawRoundRect(labelRect, u(4f), u(4f), markerLabelBgPaint)
+            markerLabelBorderPaint.color = session.color
+            markerLabelBorderPaint.strokeWidth = u(0.8f)
+            markerLabelBorderPaint.alpha = if (isOpen) 255 else 150
+            canvas.drawRoundRect(labelRect, u(4f), u(4f), markerLabelBorderPaint)
+            val baseline = labelCenterY - (markerLabelTextPaint.ascent() + markerLabelTextPaint.descent()) / 2f
+            canvas.drawText(code, labelCenterX, baseline, markerLabelTextPaint)
         }
         sessionPaint.style = Paint.Style.STROKE
     }
@@ -355,15 +510,13 @@ class AnalogClockView(
         val mapRadius = radius * 0.84f
         val hitRadius = u(22f)
         val hit = TradingSessions.sessions.map { session ->
-            val p = project(sessionLocation(session.name), cx, cy, mapRadius)
-            Triple(session, p.first, p.second)
-        }.map { (session, x, y) ->
-            val dx = event.x - x
-            val dy = event.y - y
-            Triple(session, x, y) to (dx * dx + dy * dy)
+            val p = markerPosition(session, cx, cy, mapRadius)
+            val dx = event.x - p.first
+            val dy = event.y - p.second
+            session to (dx * dx + dy * dy)
         }.filter { it.second <= hitRadius * hitRadius }
             .minByOrNull { it.second }
-        if (hit != null) onSessionToggle(hit.first.first.name)
+        if (hit != null) onSessionToggle(hit.first.name)
         return true
     }
 
