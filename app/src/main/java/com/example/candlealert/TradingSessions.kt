@@ -1,6 +1,7 @@
 package com.example.candlealert
 
 import android.content.Context
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -23,11 +24,11 @@ object TradingSessions {
     )
 
     val sessions = listOf(
-        Session("Sydney", "Australia/Sydney", 9, 18, 0xFF6F9C91.toInt()),
-        Session("Tokyo", "Asia/Tokyo", 9, 18, 0xFF91A9B4.toInt()),
-        Session("Frankfurt", "Europe/Berlin", 8, 17, 0xFFC2A56C.toInt()),
-        Session("London", "Europe/London", 8, 17, 0xFF4F8D82.toInt()),
-        Session("New York", "America/New_York", 8, 17, 0xFF176B63.toInt())
+        Session("Sydney", "Australia/Sydney", 9, 18, 0xFFF97372.toInt()),
+        Session("Tokyo", "Asia/Tokyo", 9, 18, 0xFF8B5CF6.toInt()),
+        Session("Frankfurt", "Europe/Berlin", 8, 17, 0xFF3B82F6.toInt()),
+        Session("London", "Europe/London", 8, 17, 0xFF14B8A6.toInt()),
+        Session("New York", "America/New_York", 8, 17, 0xFFF59E0B.toInt())
     )
 
     /**
@@ -65,6 +66,9 @@ object TradingSessions {
     fun isOpen(name: String, instant: Instant): Boolean {
         val session = sessions.firstOrNull { it.name == name } ?: return false
         val marketTime = instant.atZone(ZoneId.of(session.zone))
+        // These session definitions represent weekday trading hours. Do not show
+        // a market as open on Saturday/Sunday merely because the local clock matches.
+        if (marketTime.dayOfWeek == DayOfWeek.SATURDAY || marketTime.dayOfWeek == DayOfWeek.SUNDAY) return false
         val minuteOfDay = marketTime.hour * 60 + marketTime.minute
         val start = session.startHour * 60
         val end = session.endHour * 60
