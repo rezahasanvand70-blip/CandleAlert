@@ -103,14 +103,14 @@ object GoogleSheetsApi {
         val batch = JSONObject().apply {
             put("valueInputOption", "USER_ENTERED")
             put("data", JSONArray()
-                .put(JSONObject().put("range", "Trades!A1:O${tradeRows.length()}").put("majorDimension", "ROWS").put("values", tradeRows))
+                .put(JSONObject().put("range", "Trades!A1:R${tradeRows.length()}").put("majorDimension", "ROWS").put("values", tradeRows))
                 .put(JSONObject().put("range", "Account!A1:B${accountRows.length()}").put("majorDimension", "ROWS").put("values", accountRows)))
         }
         return request("POST", "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values:batchUpdate", token, batch.toString()) != null
     }
 
     fun readJournal(token: String, spreadsheetId: String): JSONObject? {
-        val encoded = URLEncoder.encode("Trades!A1:O", "UTF-8")
+        val encoded = URLEncoder.encode("Trades!A1:R", "UTF-8")
         val response = request("GET", "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/$encoded", token, null) ?: return null
         return try { JSONObject(response) } catch (_: Exception) { null }
     }
