@@ -532,7 +532,9 @@ class MainActivity : AppCompatActivity() {
         var exit: String,
         var pnl: String,
         var exitReason: String,
-        var notes: String
+        var notes: String,
+        var swap: String = "0",
+        var commission: String = "0"
     )
 
     private fun journalTrades(): MutableList<JournalTrade> {
@@ -555,7 +557,9 @@ class MainActivity : AppCompatActivity() {
                     o.optString("exit"),
                     o.optString("pnl"),
                     o.optString("exitReason"),
-                    o.optString("notes")
+                    o.optString("notes"),
+                    o.optString("swap", "0"),
+                    o.optString("commission", "0")
                 ))
             }
         } catch (_: Exception) {}
@@ -579,6 +583,8 @@ class MainActivity : AppCompatActivity() {
                 put("pnl", t.pnl)
                 put("exitReason", t.exitReason)
                 put("notes", t.notes)
+                put("swap", t.swap)
+                put("commission", t.commission)
             })
         }
         prefs.edit().putString("journal_trades_v2", a.toString()).apply()
@@ -655,7 +661,7 @@ class MainActivity : AppCompatActivity() {
                 listOf(t.id.toString(), if (t.exitTime == null) "OPEN" else "CLOSED", t.symbol, t.direction,
                     t.entryTime.toString(), t.entry, t.sl, t.tp, t.volume, t.exitTime?.toString() ?: "",
                     if (t.exitTime != null) journalDuration(t.entryTime, t.exitTime!!) else "",
-                    t.exit, t.pnl, t.exitReason, t.notes)
+                    t.exit, t.pnl, t.swap, t.commission, t.exitReason, t.notes)
             }, initial, deposits, withdrawals)
             runOnUiThread {
                 if (ok) {
@@ -820,7 +826,7 @@ class MainActivity : AppCompatActivity() {
 
         // Large performance summary: values are intentionally prominent and
         // profit/loss state is reinforced with explicit green/red typography.
-        val closedWithPnl = closed.mapNotNull { it.pnl.toDoubleOrNull() }
+        val closedWithPnl = closed.mapNotNull { it.pnl.toDoubleOrNull()?.minus(kotlin.math.abs(it.swap.toDoubleOrNull() ?: 0.0) + kotlin.math.abs(it.commission.toDoubleOrNull() ?: 0.0)) }
         val wins = closedWithPnl.count { it > 0.0 }
         val losses = closedWithPnl.count { it < 0.0 }
         val grossProfit = closedWithPnl.filter { it > 0.0 }.sum()
@@ -1185,10 +1191,17 @@ class MainActivity : AppCompatActivity() {
             })
         }
         if (!isOpen) {
+            val grossPnl = t.pnl.toDoubleOrNull() ?: 0.0
+            val costs = kotlin.math.abs(t.swap.toDoubleOrNull() ?: 0.0) + kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)
+            val netPnl = grossPnl - costs
             c.addView(text(
-                "Exit " + t.exit.ifBlank { "—" } + "   •   P/L " + t.pnl.ifBlank { "—" },
-                13f, if ((t.pnl.toDoubleOrNull() ?: 0.0) >= 0) green else red
+                "Exit " + t.exit.ifBlank { "—" } + "   •   Net P/L " + String.format(Locale.US, "%.2f", netPnl),
+                13f, if (netPnl >= 0) green else red
             ).apply { setPadding(dp(0), dp(5), dp(0), dp(0)) })
+            if (costs > 0.0) {
+                c.addView(text("Swap: " + t.swap + "   •   Commission: " + t.commission, 12f, muted)
+                    .apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
+            }
             if (t.exitReason.isNotBlank()) {
                 c.addView(text("Reason: " + t.exitReason, 12f, muted).apply { setPadding(dp(0), dp(4), dp(0), dp(0)) })
             }
@@ -1435,25 +1448,51 @@ class MainActivity : AppCompatActivity() {
             (if (t.direction == "BUY") x - e else e - x) * volume
         } else null
         journalAsk(
-            "3 / 5  •  Profit / Loss",
+            "3 / 7  •  Gross Profit / Loss",
             calculated?.let { "Suggested P/L: " + String.format(Locale.US, "%.5f", it) } ?: "Enter P/L",
             "", true
         ) {
             t.pnl = it.ifBlank { calculated?.toString() ?: "" }
-            journalExitReasonStep(t)
+            journalSwapStep(t)
+        }
+    }
+
+    private fun journalSwapStep(t: JournalTrade) {
+        journalAsk("4 / 7  •  Swap Cost", "Swap cost (0 if none)", t.swap.takeUnless { it == "0" } ?: "", true) {
+            val amount = if (it.isBlank()) 0.0 else it.toDoubleOrNull()
+            if (amount == null || amount < 0.0) {
+                Toast.makeText(this, "Enter a valid non-negative swap cost.", Toast.LENGTH_SHORT).show()
+                journalSwapStep(t)
+            } else {
+                t.swap = amount.toString()
+                journalCommissionStep(t)
+            }
+        }
+    }
+
+    private fun journalCommissionStep(t: JournalTrade) {
+        journalAsk("5 / 7  •  Commission Cost", "Commission cost (0 if none)", t.commission.takeUnless { it == "0" } ?: "", true) {
+            val amount = if (it.isBlank()) 0.0 else it.toDoubleOrNull()
+            if (amount == null || amount < 0.0) {
+                Toast.makeText(this, "Enter a valid non-negative commission.", Toast.LENGTH_SHORT).show()
+                journalCommissionStep(t)
+            } else {
+                t.commission = amount.toString()
+                journalExitReasonStep(t)
+            }
         }
     }
 
     private fun journalExitReasonStep(t: JournalTrade) {
         val reasons = arrayOf("Take Profit", "Stop Loss", "Manual Close", "Signal Reversal", "Session End", "Other")
-        AlertDialog.Builder(this).setTitle("4 / 5  •  Exit Reason")
+        AlertDialog.Builder(this).setTitle("6 / 7  •  Exit Reason")
             .setItems(reasons) { _, i -> t.exitReason = reasons[i]; journalCloseNotesStep(t) }
             .setNeutralButton("Skip") { _, _ -> t.exitReason = ""; journalCloseNotesStep(t) }
             .setNegativeButton("Cancel", null).show()
     }
 
     private fun journalCloseNotesStep(t: JournalTrade) {
-        journalAsk("5 / 5  •  Closing Notes", "Optional — what went well / what to improve", "", true) {
+        journalAsk("7 / 7  •  Closing Notes", "Optional — what went well / what to improve", "", true) {
             t.notes = if (it.isBlank()) t.notes else if (t.notes.isBlank()) it else t.notes + "\n" + it
             journalConfirmClose(t)
         }
@@ -1463,7 +1502,10 @@ class MainActivity : AppCompatActivity() {
         var msg = t.symbol + "  " + t.direction +
             "\nEntry: " + t.entry +
             "\nExit: " + t.exit +
-            "\nP/L: " + t.pnl.ifBlank { "—" } +
+            "\nGross P/L: " + t.pnl.ifBlank { "—" } +
+            "\nSwap: " + t.swap +
+            "\nCommission: " + t.commission +
+            "\nNet P/L after costs: " + String.format(Locale.US, "%.2f", (t.pnl.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.swap.toDoubleOrNull() ?: 0.0) - kotlin.math.abs(t.commission.toDoubleOrNull() ?: 0.0)) +
             "\nExit time: " + (t.exitTime?.let { journalDate(it) } ?: "—")
         journalRR(t)?.let { msg += "\nR:R planned: 1 : " + String.format(Locale.US, "%.2f", it) }
         AlertDialog.Builder(this).setTitle("Close Trade").setMessage(msg)
