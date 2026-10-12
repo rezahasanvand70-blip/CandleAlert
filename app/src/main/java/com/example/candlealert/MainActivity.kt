@@ -59,6 +59,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
+        // Activity context is only attached after the constructor has completed.
+        // Load preference-backed fields here, not in property initializers.
+        economicDays = prefs.getInt("news_filter_days", 7).let { saved -> if (saved in listOf(1, 7, 14, 30)) saved else 7 }
+        economicImpact = prefs.getString("news_filter_impact", "All impact") ?: "All impact"
+        economicCountry = prefs.getString("news_filter_country", "All countries") ?: "All countries"
         applyNightModePreference()
         applyFreshInstallDefaults()
         applySystemBars()
@@ -1772,9 +1777,9 @@ class MainActivity : AppCompatActivity() {
     private var economicLoading = false
     private var economicAttempted = false
     private var economicError: String? = null
-    private var economicDays = prefs.getInt("news_filter_days", 7).let { saved -> if (saved in listOf(1, 7, 14, 30)) saved else 7 }
-    private var economicImpact = prefs.getString("news_filter_impact", "All impact") ?: "All impact"
-    private var economicCountry = prefs.getString("news_filter_country", "All countries") ?: "All countries"
+    private var economicDays = 7
+    private var economicImpact = "All impact"
+    private var economicCountry = "All countries"
 
     private fun eventRegionLabel(event: EconomicEvent): String {
         val country = event.country.trim().lowercase(Locale.US)
