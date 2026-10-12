@@ -1,6 +1,9 @@
 package com.example.candlealert
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
@@ -146,28 +149,14 @@ class AnalogClockView(
     private data class GeoPoint(val lon: Float, val lat: Float)
 
     // Simplified country silhouettes in geographic coordinates; the pixel grid keeps the map crisp at every size.
-    // More recognizable world silhouettes, with major peninsulas and islands separated.
-    private fun continents(): List<List<GeoPoint>> = listOf(
-        listOf(GeoPoint(-168f,66f),GeoPoint(-155f,71f),GeoPoint(-137f,60f),GeoPoint(-128f,54f),GeoPoint(-124f,48f),GeoPoint(-124f,40f),GeoPoint(-117f,32f),GeoPoint(-108f,23f),GeoPoint(-98f,17f),GeoPoint(-83f,9f),GeoPoint(-77f,18f),GeoPoint(-81f,25f),GeoPoint(-97f,29f),GeoPoint(-105f,42f),GeoPoint(-119f,50f),GeoPoint(-130f,55f),GeoPoint(-145f,60f),GeoPoint(-160f,60f)),
-        listOf(GeoPoint(-53f,83f),GeoPoint(-27f,77f),GeoPoint(-20f,68f),GeoPoint(-43f,59f),GeoPoint(-58f,65f),GeoPoint(-66f,74f)),
-        listOf(GeoPoint(-97f,18f),GeoPoint(-88f,21f),GeoPoint(-82f,15f),GeoPoint(-77f,8f),GeoPoint(-83f,7f),GeoPoint(-91f,14f)),
-        listOf(GeoPoint(-81f,12f),GeoPoint(-70f,10f),GeoPoint(-60f,6f),GeoPoint(-50f,-2f),GeoPoint(-35f,-8f),GeoPoint(-40f,-22f),GeoPoint(-50f,-35f),GeoPoint(-68f,-56f),GeoPoint(-75f,-40f),GeoPoint(-78f,-20f)),
-        listOf(GeoPoint(-10f,36f),GeoPoint(-10f,44f),GeoPoint(-9f,54f),GeoPoint(-5f,58f),GeoPoint(3f,60f),GeoPoint(15f,70f),GeoPoint(32f,71f),GeoPoint(48f,60f),GeoPoint(60f,65f),GeoPoint(80f,72f),GeoPoint(105f,76f),GeoPoint(130f,70f),GeoPoint(160f,60f),GeoPoint(179f,60f),GeoPoint(160f,50f),GeoPoint(145f,40f),GeoPoint(130f,30f),GeoPoint(120f,20f),GeoPoint(108f,10f),GeoPoint(100f,5f),GeoPoint(80f,8f),GeoPoint(70f,20f),GeoPoint(60f,25f),GeoPoint(50f,30f),GeoPoint(40f,40f),GeoPoint(30f,30f),GeoPoint(20f,30f),GeoPoint(10f,30f),GeoPoint(0f,35f)),
-        listOf(GeoPoint(35f,32f),GeoPoint(50f,30f),GeoPoint(56f,20f),GeoPoint(40f,12f),GeoPoint(30f,18f)),
-        listOf(GeoPoint(-17f,37f),GeoPoint(0f,36f),GeoPoint(12f,33f),GeoPoint(32f,31f),GeoPoint(43f,12f),GeoPoint(51f,11f),GeoPoint(40f,-5f),GeoPoint(32f,-20f),GeoPoint(20f,-35f),GeoPoint(10f,-34f),GeoPoint(-1f,-20f),GeoPoint(-12f,5f),GeoPoint(-17f,20f)),
-        listOf(GeoPoint(68f,24f),GeoPoint(88f,28f),GeoPoint(93f,20f),GeoPoint(105f,8f),GeoPoint(98f,1f),GeoPoint(80f,7f),GeoPoint(70f,15f)),
-        listOf(GeoPoint(130f,33f),GeoPoint(135f,30f),GeoPoint(142f,38f),GeoPoint(145f,44f),GeoPoint(140f,45f),GeoPoint(134f,38f)),
-        listOf(GeoPoint(95f,5f),GeoPoint(110f,0f),GeoPoint(120f,-7f),GeoPoint(130f,-5f),GeoPoint(125f,2f),GeoPoint(115f,8f),GeoPoint(105f,8f)),
-        listOf(GeoPoint(120f,18f),GeoPoint(126f,8f),GeoPoint(123f,5f),GeoPoint(119f,12f)),
-        listOf(GeoPoint(113f,-11f),GeoPoint(130f,-12f),GeoPoint(145f,-15f),GeoPoint(154f,-28f),GeoPoint(145f,-39f),GeoPoint(131f,-35f),GeoPoint(115f,-33f)),
-        listOf(GeoPoint(47f,-13f),GeoPoint(50f,-17f),GeoPoint(49f,-25f),GeoPoint(44f,-22f))
-    )
+    private val worldMapMask: Bitmap by lazy(LazyThreadSafetyMode.NONE) {
+        val bytes = Base64.decode(WORLD_MASK_BASE64, Base64.DEFAULT)
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IllegalStateException("World map mask could not be decoded")
+    }
 
     private fun project(point: GeoPoint, cx: Float, cy: Float, r: Float): Pair<Float, Float> =
         Pair(cx + point.lon / 180f * r, cy - point.lat / 90f * r)
-
-    private fun screenToGeo(x: Float, y: Float, cx: Float, cy: Float, r: Float): Pair<Float, Float> =
-        Pair(((x - cx) / r * 180f).coerceIn(-180f, 180f), (-(y - cy) / r * 90f).coerceIn(-90f, 90f))
 
     private fun sessionLocation(name: String): GeoPoint = when (name.lowercase(Locale.ROOT)) {
         "new york" -> GeoPoint(-74.0f, 40.7f)
@@ -176,19 +165,6 @@ class AnalogClockView(
         "tokyo" -> GeoPoint(139.7f, 35.7f)
         "sydney" -> GeoPoint(151.2f, -33.9f)
         else -> GeoPoint(0f, 0f)
-    }
-
-    private fun pointInPolygon(lon: Float, lat: Float, polygon: List<GeoPoint>): Boolean {
-        if (polygon.size < 3) return false
-        var inside = false
-        var j = polygon.lastIndex
-        for (i in polygon.indices) {
-            val a = polygon[i]; val b = polygon[j]
-            if ((a.lat > lat) != (b.lat > lat) &&
-                lon < (b.lon - a.lon) * (lat - a.lat) / ((b.lat - a.lat).takeIf { it != 0f } ?: 0.0001f) + a.lon) inside = !inside
-            j = i
-        }
-        return inside
     }
 
     private data class SolarPosition(val subsolarLongitude: Double, val declinationRadians: Double)
@@ -246,7 +222,7 @@ class AnalogClockView(
         val twilightOcean = if (darkTheme) 0xFF203D47.toInt() else 0xFFC5C8B6.toInt()
         val twilightLand = if (darkTheme) 0xFF527A76.toInt() else 0xFF9AAE9A.toInt()
         val solar = solarPosition(now.toInstant())
-        val landShapes = continents()
+        val worldMask = worldMapMask
         face.style = Paint.Style.FILL
 
         // Fine square pixels keep coastlines recognizable at phone-clock scale.
@@ -259,7 +235,9 @@ class AnalogClockView(
                 val dx = p.first - cx
                 val dy = p.second - cy
                 if (dx * dx + dy * dy <= r * r) {
-                    val isLand = landShapes.any { pointInPolygon(point.lon, point.lat, it) }
+                    val maskX = (((lon + 180.0) / 360.0) * (worldMask.width - 1)).toInt().coerceIn(0, worldMask.width - 1)
+                    val maskY = (((90.0 - lat) / 180.0) * (worldMask.height - 1)).toInt().coerceIn(0, worldMask.height - 1)
+                    val isLand = android.graphics.Color.red(worldMask.getPixel(maskX, maskY)) > 127
                     val latitudeRad = Math.toRadians(lat)
                     val longitudeDelta = Math.toRadians(lon - solar.subsolarLongitude)
                     val sunElevationCosine = sin(latitudeRad) * sin(solar.declinationRadians) +
@@ -391,4 +369,9 @@ class AnalogClockView(
         val radians = Math.toRadians(degrees.toDouble())
         canvas.drawLine(cx, cy, cx + cos(radians).toFloat() * length, cy + sin(radians).toFloat() * length, hand)
     }
+    companion object {
+        // Public-domain Natural Earth low-resolution land mask, excluding Antarctica.
+        private const val WORLD_MASK_BASE64 = "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"
+    }
+
 }
