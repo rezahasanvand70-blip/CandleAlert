@@ -132,7 +132,7 @@ class AnalogClockView(
         tick.style = Paint.Style.STROKE
 
         number.textAlign = Paint.Align.CENTER
-        number.textSize = radius * 0.058f
+        number.textSize = radius * 0.067f
         number.color = primary
         number.alpha = 225
         for (h in 0 until 24 step 3) {
@@ -149,9 +149,9 @@ class AnalogClockView(
         val minuteFloat = minute + secondFloat / 60f
         val hourFloat24 = hour + minuteFloat / 60f
 
-        drawHand(canvas, cx, cy, radius * 0.24f, hourFloat24 * 15f - 90f, u(7f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
-        drawHand(canvas, cx, cy, radius * 0.39f, minuteFloat * 6f - 90f, u(4.5f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
-        drawHand(canvas, cx, cy, radius * 0.47f, secondFloat * 6f - 90f, u(2f), 0xFFC5A15A.toInt())
+        drawHand(canvas, cx, cy, radius * 0.34f, hourFloat24 * 15f - 90f, u(7f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
+        drawHand(canvas, cx, cy, radius * 0.55f, minuteFloat * 6f - 90f, u(4.5f), if (darkTheme) 0xFFE9EEE7.toInt() else 0xFF183E38.toInt())
+        drawHand(canvas, cx, cy, radius * 0.64f, secondFloat * 6f - 90f, u(2f), 0xFFC5A15A.toInt())
         // A defined center pivot visually joins the three hands and keeps their intersection crisp.
         center.style = Paint.Style.FILL
         center.color = if (darkTheme) 0xFF0E1B1A.toInt() else 0xFFFFFEFA.toInt()
@@ -423,7 +423,7 @@ class AnalogClockView(
             canvas.drawCircle(marker.first, marker.second, if (alertsEnabled) u(5.3f) else u(4.4f), sessionPaint)
 
             val code = markerCode(session.name)
-            markerLabelTextPaint.textSize = u(7.4f)
+            markerLabelTextPaint.textSize = u(8.2f)
             markerLabelTextPaint.color = if (darkTheme) 0xFFF4F7F4.toInt() else 0xFF203631.toInt()
             val labelOffset = markerLabelOffset(session.name)
             val labelCenterX = marker.first + labelOffset.first
