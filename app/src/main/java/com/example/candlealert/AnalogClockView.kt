@@ -162,7 +162,7 @@ class AnalogClockView(
         canvas.drawCircle(cx, cy, u(1.5f), center)
 
         // Foreground markers stay above the clock hands so the financial sessions remain readable.
-        drawMarketMarkers(canvas, cx, cy, radius * 0.84f, sessions, selected, now)
+        drawCountryHighlights(canvas, cx, cy, radius * 0.84f, selected)
 
         // Digital time and candle countdown are shown in the compact strip below the dial.
 
@@ -351,20 +351,14 @@ class AnalogClockView(
     }
 
     private fun drawPixelWorldMap(canvas: Canvas, cx: Float, cy: Float, r: Float, now: ZonedDateTime) {
+        // Full 2:1 world map inside the circular clock face; no rectangular map panel.
         val mapRect = RectF(cx - r, cy - r * 0.5f, cx + r, cy + r * 0.5f)
-        val corner = u(5f)
-        val clip = Path().apply { addRoundRect(mapRect, corner, corner, Path.Direction.CW) }
-
-        // A clean, antialiased map panel replaces the old square-by-square drawing.
-        mapFramePaint.style = Paint.Style.FILL
-        mapFramePaint.color = if (darkTheme) 0xFF13242A.toInt() else 0xFFE8EFEB.toInt()
-        canvas.drawRoundRect(mapRect, corner, corner, mapFramePaint)
+        val circularClip = Path().apply { addCircle(cx, cy, r * 0.995f, Path.Direction.CW) }
         canvas.save()
-        canvas.clipPath(clip)
+        canvas.clipPath(circularClip)
         canvas.drawBitmap(worldMapForMinute(now.toInstant()), null, mapRect, mapBitmapPaint)
 
-        // Restrained graticule lines add geographic structure without obscuring coastlines.
-        mapGridPaint.color = if (darkTheme) 0x28FFFFFF else 0x28344742
+        mapGridPaint.color = if (darkTheme) 0x22FFFFFF else 0x22344742
         mapGridPaint.strokeWidth = u(0.55f)
         for (longitude in -120..120 step 60) {
             val x = mapRect.left + (longitude + 180f) / 360f * mapRect.width()
@@ -378,11 +372,106 @@ class AnalogClockView(
 
         mapFramePaint.style = Paint.Style.STROKE
         mapFramePaint.strokeWidth = u(0.8f)
-        mapFramePaint.color = if (darkTheme) 0x80597576.toInt() else 0x66FFFFFF
-        canvas.drawRoundRect(mapRect, corner, corner, mapFramePaint)
+        mapFramePaint.color = if (darkTheme) 0x557C9D96 else 0x55708077
+        canvas.drawCircle(cx, cy, r * 0.995f, mapFramePaint)
     }
 
-    private fun drawMarketMarkers(
+    private data class CountryShape(val sessionName: String, val polygons: List<List<GeoPoint>>)
+
+    // Simplified geographic country outlines: session selection lights up the COUNTRY, not a pin.
+    private val countryShapes: List<CountryShape> by lazy {
+        listOf(
+            CountryShape("New York", listOf(listOf(
+                GeoPoint(-124f, 48f), GeoPoint(-117f, 49f), GeoPoint(-110f, 49f),
+                GeoPoint(-102f, 49f), GeoPoint(-95f, 49f), GeoPoint(-89f, 47f),
+                GeoPoint(-82f, 45f), GeoPoint(-75f, 45f), GeoPoint(-67f, 47f),
+                GeoPoint(-69f, 43f), GeoPoint(-72f, 41f), GeoPoint(-74f, 40f),
+                GeoPoint(-80f, 32f), GeoPoint(-81f, 25f), GeoPoint(-97f, 26f),
+                GeoPoint(-106f, 31f), GeoPoint(-117f, 32f), GeoPoint(-124f, 42f),
+                GeoPoint(-124f, 48f)
+            ))),
+            CountryShape("London", listOf(listOf(
+                GeoPoint(-6.4f, 50.1f), GeoPoint(-5.2f, 50.0f), GeoPoint(-4.1f, 50.4f),
+                GeoPoint(-3.0f, 50.3f), GeoPoint(-1.8f, 50.7f), GeoPoint(0.4f, 51.4f),
+                GeoPoint(1.7f, 52.7f), GeoPoint(0.9f, 53.7f), GeoPoint(0.1f, 54.8f),
+                GeoPoint(-1.7f, 55.8f), GeoPoint(-3.0f, 58.6f), GeoPoint(-5.2f, 58.7f),
+                GeoPoint(-6.0f, 56.6f), GeoPoint(-5.1f, 54.6f), GeoPoint(-7.0f, 55.0f),
+                GeoPoint(-6.2f, 53.4f), GeoPoint(-5.7f, 51.8f), GeoPoint(-6.4f, 50.1f)
+            ))),
+            CountryShape("Frankfurt", listOf(listOf(
+                GeoPoint(5.9f, 47.3f), GeoPoint(7.6f, 47.5f), GeoPoint(9.6f, 47.5f),
+                GeoPoint(10.5f, 47.4f), GeoPoint(13.8f, 48.8f), GeoPoint(13.7f, 50.7f),
+                GeoPoint(12.1f, 51.4f), GeoPoint(14.7f, 52.8f), GeoPoint(14.6f, 54.0f),
+                GeoPoint(12.5f, 54.4f), GeoPoint(10.7f, 54.4f), GeoPoint(8.2f, 55.1f),
+                GeoPoint(7.1f, 53.9f), GeoPoint(6.1f, 51.0f), GeoPoint(5.9f, 47.3f)
+            ))),
+            CountryShape("Tokyo", listOf(
+                listOf(
+                    GeoPoint(129.5f, 31.0f), GeoPoint(131.0f, 31.3f), GeoPoint(132.2f, 33.0f),
+                    GeoPoint(134.7f, 34.2f), GeoPoint(136.0f, 35.0f), GeoPoint(138.0f, 34.7f),
+                    GeoPoint(140.8f, 36.2f), GeoPoint(140.0f, 38.0f), GeoPoint(141.7f, 40.5f),
+                    GeoPoint(140.8f, 41.5f), GeoPoint(138.5f, 39.5f), GeoPoint(136.8f, 37.2f),
+                    GeoPoint(135.0f, 35.6f), GeoPoint(133.0f, 35.4f), GeoPoint(131.0f, 33.8f),
+                    GeoPoint(129.5f, 31.0f)
+                ),
+                listOf(
+                    GeoPoint(140.5f, 41.5f), GeoPoint(141.5f, 43.5f), GeoPoint(145.5f, 44.5f),
+                    GeoPoint(145.0f, 42.0f), GeoPoint(142.0f, 41.3f), GeoPoint(140.5f, 41.5f)
+                )
+            )),
+            CountryShape("Sydney", listOf(listOf(
+                GeoPoint(113.0f, -22.0f), GeoPoint(119.0f, -20.0f), GeoPoint(126.0f, -14.0f),
+                GeoPoint(134.0f, -11.0f), GeoPoint(141.0f, -14.0f), GeoPoint(145.0f, -16.0f),
+                GeoPoint(153.5f, -25.0f), GeoPoint(150.0f, -37.5f), GeoPoint(146.0f, -39.0f),
+                GeoPoint(138.0f, -35.0f), GeoPoint(130.0f, -32.0f), GeoPoint(123.0f, -34.0f),
+                GeoPoint(115.0f, -34.5f), GeoPoint(113.0f, -22.0f)
+            )))
+        )
+    }
+
+    private fun drawCountryHighlights(canvas: Canvas, cx: Float, cy: Float, r: Float, selected: Set<String>) {
+        canvas.save()
+        canvas.clipPath(Path().apply { addCircle(cx, cy, r * 0.995f, Path.Direction.CW) })
+        val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+        }
+        for (country in countryShapes) {
+            for (polygon in country.polygons) {
+                if (polygon.size < 3) continue
+                val path = Path()
+                polygon.forEachIndexed { index, point ->
+                    val p = project(point, cx, cy, r)
+                    if (index == 0) path.moveTo(p.first, p.second) else path.lineTo(p.first, p.second)
+                }
+                path.close()
+                val active = selected.contains(country.sessionName)
+                if (active) {
+                    val color = TradingSessions.sessions.first { it.name == country.sessionName }.color
+                    outline.color = color
+                    outline.strokeWidth = u(5f)
+                    outline.alpha = 48
+                    canvas.drawPath(path, outline)
+                    outline.strokeWidth = u(1.8f)
+                    outline.alpha = 255
+                    canvas.drawPath(path, outline)
+                    outline.style = Paint.Style.FILL
+                    outline.alpha = 22
+                    canvas.drawPath(path, outline)
+                    outline.style = Paint.Style.STROKE
+                } else {
+                    outline.color = if (darkTheme) 0x7097B6A9 else 0x70657D70
+                    outline.strokeWidth = u(0.65f)
+                    outline.alpha = 145
+                    canvas.drawPath(path, outline)
+                }
+            }
+        }
+        canvas.restore()
+    }
+
+        private fun drawMarketMarkers(
         canvas: Canvas,
         cx: Float,
         cy: Float,
@@ -501,27 +590,43 @@ class AnalogClockView(
         return mid
     }
 
+    private fun pointInPolygon(lon: Float, lat: Float, polygon: List<GeoPoint>): Boolean {
+        var inside = false
+        var j = polygon.lastIndex
+        for (i in polygon.indices) {
+            val a = polygon[i]
+            val b = polygon[j]
+            val crosses = ((a.lat > lat) != (b.lat > lat)) &&
+                (lon < (b.lon - a.lon) * (lat - a.lat) / ((b.lat - a.lat).takeIf { it != 0f } ?: 0.0001f) + a.lon)
+            if (crosses) inside = !inside
+            j = i
+        }
+        return inside
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action != MotionEvent.ACTION_UP) return true
         val cx = width / 2f
         val cy = height / 2f
         val size = min(width, height).toFloat()
-        // Keep hit-test geometry exactly aligned with the dial and visible marker positions.
-        val radius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
-        val mapRadius = radius * 0.84f
-        val hitRadius = u(22f)
-        val hit = TradingSessions.sessions.map { session ->
-            val p = markerPosition(session, cx, cy, mapRadius)
-            val dx = event.x - p.first
-            val dy = event.y - p.second
-            session to (dx * dx + dy * dy)
-        }.filter { it.second <= hitRadius * hitRadius }
-            .minByOrNull { it.second }
-        if (hit != null) onSessionToggle(hit.first.name)
+        val dialRadius = (size / 2f - u(22f)).coerceAtLeast(u(1f))
+        val mapRadius = dialRadius * 0.84f
+        val dx = event.x - cx
+        val dy = event.y - cy
+        if (dx * dx + dy * dy > mapRadius * mapRadius) return true
+
+        // Convert the tap to map coordinates, then toggle the country/session under it.
+        // There are deliberately no visible city pins: the country outline is the control.
+        val lon = (dx / mapRadius) * 180f
+        val lat = (-dy / mapRadius) * 180f
+        val hit = countryShapes.firstOrNull { country ->
+            country.polygons.any { pointInPolygon(lon, lat, it) }
+        }
+        if (hit != null) onSessionToggle(hit.sessionName)
         return true
     }
 
-    private fun isHourInRange(hour: Float, start: Float, end: Float): Boolean {
+        private fun isHourInRange(hour: Float, start: Float, end: Float): Boolean {
         return if (start <= end) hour >= start && hour < end else hour >= start || hour < end
     }
 
