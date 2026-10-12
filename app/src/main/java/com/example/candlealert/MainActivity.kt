@@ -752,7 +752,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun googleSheetsConnect(createIfMissing: Boolean = false) {
+        Toast.makeText(this, "Connecting to Google…", Toast.LENGTH_SHORT).show()
         GoogleSheetsApi.requestAuthorization(this, true) { result ->
+            val token = result.accessToken
+            if (token.isNullOrBlank()) {
+                Toast.makeText(this, GoogleSheetsApi.lastError.ifBlank { "Google authorization returned no access token." }, Toast.LENGTH_LONG).show()
+                showGoogleSheetsSettings()
+                return@requestAuthorization
+            }
             val id = prefs.getString("google_sheets_id", "") ?: ""
             if (createIfMissing || id.isBlank()) googleSheetsCreateAfterAuth(result) else googleSheetsSyncAfterAuth(result)
         }
@@ -1650,10 +1657,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun journalEditPnlStep(t: JournalTrade) {
-        val current = t.pnl
-        journalEditAsk("Edit • Profit / Loss", "e.g. 125.50", current) { pnl ->
-            t.pnl = pnl
-            journalEditExitReasonStep(t)
+        journalEditAsk("Edit • Gross Profit / Loss", "Before swap and commission", t.pnl) { pnl ->
+            if (pnl.toDoubleOrNull() == null) {
+                Toast.makeText(this, "Invalid profit/loss amount.", Toast.LENGTH_SHORT).show()
+                journalEditPnlStep(t)
+            } else {
+                t.pnl = pnl
+                journalEditSwapStep(t)
+            }
+        }
+    }
+
+    private fun journalEditSwapStep(t: JournalTrade) {
+        journalEditAsk("Edit • Swap Cost", "Enter positive cost; blank or 0 if none", t.swap) { swap ->
+            val amount = swap.toDoubleOrNull()
+            if (swap.isNotBlank() && (amount == null || amount < 0)) {
+                Toast.makeText(this, "Enter a valid non-negative swap cost.", Toast.LENGTH_SHORT).show()
+                journalEditSwapStep(t)
+            } else {
+                t.swap = if (swap.isBlank()) "0" else swap
+                journalEditCommissionStep(t)
+            }
+        }
+    }
+
+    private fun journalEditCommissionStep(t: JournalTrade) {
+        journalEditAsk("Edit • Commission Cost", "Enter positive cost; blank or 0 if none", t.commission) { commission ->
+            val amount = commission.toDoubleOrNull()
+            if (commission.isNotBlank() && (amount == null || amount < 0)) {
+                Toast.makeText(this, "Enter a valid non-negative commission cost.", Toast.LENGTH_SHORT).show()
+                journalEditCommissionStep(t)
+            } else {
+                t.commission = if (commission.isBlank()) "0" else commission
+                journalEditExitReasonStep(t)
+            }
         }
     }
 
