@@ -45,6 +45,22 @@ class EconomicEventRegionClassifierTest {
     }
 
     @Test
+    fun classifiesPoundSymbolAsUkCurrency() {
+        assertEquals(
+            "🇬🇧 UK Pound (GBP)",
+            EconomicEventRegionClassifier.label("Global", "£", "Retail Sales", "")
+        )
+    }
+
+    @Test
+    fun classifiesFomcEvenWhenProviderOmitsCountryAndCurrency() {
+        assertEquals(
+            "🇺🇸 US Dollar (USD)",
+            EconomicEventRegionClassifier.label("", "", "FOMC Rate Decision", "central banks")
+        )
+    }
+
+    @Test
     fun leavesUnidentifiedEventsInGlobalBucket() {
         assertEquals(
             "🌐 Global / not specified",
