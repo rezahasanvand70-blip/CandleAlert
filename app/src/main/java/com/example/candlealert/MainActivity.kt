@@ -47,6 +47,11 @@ class MainActivity : AppCompatActivity() {
     private var ticker: Runnable? = null
     private var settingsVisible = false
     private var settingsSubpageVisible = false
+    private var pendingEconomicAlarm: Pair<EconomicEvent, Int>? = null
+
+    companion object {
+        private const val REQUEST_ECONOMIC_NOTIFICATION_PERMISSION = 47
+    }
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
@@ -54,6 +59,36 @@ class MainActivity : AppCompatActivity() {
             settingsSubpageVisible -> showSettings()
             settingsVisible -> showHome()
             else -> super.onBackPressed()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Rebuild future alarms after returning from Android settings, a reboot,
+        // or the app having been backgrounded while exact-alarm access changed.
+        EconomicAlertScheduler.rescheduleAll(this)
+
+        val pending = pendingEconomicAlarm
+        if (pending != null && EconomicAlertScheduler.notificationsEnabled(this)) {
+            pendingEconomicAlarm = null
+            scheduleEconomicAlarm(pending.first, pending.second)
+        }
+        showMissedEconomicReminderIfNeeded()
+    }
+
+    @Deprecated("Deprecated in Android API; retained for compatibility with permission and Google sign-in flows")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_ECONOMIC_NOTIFICATION_PERMISSION) return
+        val pending = pendingEconomicAlarm
+        if (pending == null) return
+        if (grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pendingEconomicAlarm = null
+            scheduleEconomicAlarm(pending.first, pending.second)
+        } else {
+            // Keep the selected event pending so enabling notifications in Settings
+            // resumes scheduling without asking the user to select the event again.
+            showEconomicNotificationSettingsDialog()
         }
     }
 
@@ -1787,44 +1822,8 @@ class MainActivity : AppCompatActivity() {
     private var economicImpact = "All impact"
     private var economicCountry = "All countries"
 
-    private fun eventRegionLabel(event: EconomicEvent): String {
-        val country = event.country.trim().lowercase(Locale.US)
-        val currency = event.currency.trim().uppercase(Locale.US)
-        val source = "${event.country} ${event.currency} ${event.title} ${event.category}".lowercase(Locale.US)
-        fun hasToken(value: String, token: String): Boolean =
-            Regex("(^|[^a-z])" + Regex.escape(token.lowercase(Locale.US)) + "([^a-z]|$)").containsMatchIn(value)
-        return when {
-            currency == "EUR" || country in setOf("eu", "euro area", "eurozone", "euro area (euro)", "european union") ||
-                source.contains("euro area") || source.contains("eurozone") || source.contains("european central bank") ||
-                hasToken(source, "ecb") -> "🇪🇺 Euro (EUR)"
-            currency == "USD" || country in setOf("us", "usa", "u.s.", "u.s.a.", "united states", "united states of america", "america") ||
-                source.contains("united states") || source.contains("united states of america") || source.contains("federal reserve") ||
-                source.contains("nonfarm payroll") || source.contains("non-farm payroll") || source.contains("us dollar") ||
-                hasToken(source, "usa") || hasToken(source, "usd") || hasToken(source, "us") ||
-                source.contains("consumer price index") && (source.contains("cpi") || source.contains("inflation")) -> "🇺🇸 US Dollar (USD)"
-            currency == "JPY" || country in setOf("jp", "jpn", "japan") || source.contains("bank of japan") ||
-                source.contains("japan") || hasToken(source, "jpy") -> "🇯🇵 Japan (JPY)"
-            currency == "GBP" || country in setOf("gb", "gbr", "uk", "united kingdom", "britain", "great britain") ||
-                source.contains("bank of england") || source.contains("united kingdom") || source.contains("britain") || hasToken(source, "gbp") -> "🇬🇧 UK Pound (GBP)"
-            currency == "AUD" || country in setOf("au", "aus", "australia") || source.contains("reserve bank of australia") ||
-                source.contains("australia") || hasToken(source, "aud") -> "🇦🇺 Australian Dollar (AUD)"
-            currency == "CAD" || country in setOf("ca", "can", "canada") || source.contains("bank of canada") ||
-                source.contains("canada") || hasToken(source, "cad") -> "🇨🇦 Canadian Dollar (CAD)"
-            currency == "CHF" || country in setOf("ch", "che", "switzerland") || source.contains("swiss national bank") ||
-                source.contains("switzerland") || hasToken(source, "chf") -> "🇨🇭 Swiss Franc (CHF)"
-            currency == "NZD" || country in setOf("nz", "nzl", "new zealand") || source.contains("reserve bank of new zealand") ||
-                source.contains("new zealand") || hasToken(source, "nzd") -> "🇳🇿 New Zealand Dollar (NZD)"
-            currency in setOf("CNY", "CNH") || country in setOf("cn", "chn", "china") || source.contains("people's bank of china") ||
-                source.contains("china") || hasToken(source, "cny") || hasToken(source, "cnh") -> "🇨🇳 Chinese Yuan (CNY)"
-            currency == "INR" || country in setOf("in", "ind", "india") || source.contains("reserve bank of india") ||
-                source.contains("india") || hasToken(source, "inr") -> "🇮🇳 Indian Rupee (INR)"
-            currency == "BRL" || country in setOf("br", "bra", "brazil") || source.contains("brazil") || hasToken(source, "brl") -> "🇧🇷 Brazilian Real (BRL)"
-            currency == "MXN" || country in setOf("mx", "mex", "mexico") || source.contains("mexico") || hasToken(source, "mxn") -> "🇲🇽 Mexican Peso (MXN)"
-            country in setOf("global", "world", "worldwide", "global / not specified") ||
-                source.contains("global") || source.contains("worldwide") -> "🌐 Global / not specified"
-            else -> "🌐 Global / not specified"
-        }
-    }
+    private fun eventRegionLabel(event: EconomicEvent): String =
+        EconomicEventRegionClassifier.label(event.country, event.currency, event.title, event.category)
 
     private fun showEconomicCalendar(refresh: Boolean = false) {
         settingsVisible = false
@@ -1848,12 +1847,25 @@ class MainActivity : AppCompatActivity() {
         val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         fun filterSpinner(options: List<String>, selected: String, changed: (String) -> Unit): Spinner {
             val spinner = Spinner(this)
-            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, options)
-            spinner.setSelection(options.indexOf(selected).coerceAtLeast(0))
+            // Keep a saved selection in the adapter even when the latest feed does not
+            // currently contain that region. Otherwise Spinner falls back to index 0
+            // ("All countries") and its initial callback overwrites the user's choice.
+            val spinnerOptions = if (selected in options) options else listOf(selected) + options
+            spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, spinnerOptions)
+            spinner.setSelection(spinnerOptions.indexOf(selected).coerceAtLeast(0))
+            var initialSelectionPending = true
             spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val value = options.getOrNull(position) ?: return
+                    val value = spinnerOptions.getOrNull(position) ?: return
+                    // Only ignore a callback that confirms the already-selected value.
+                    // If Android skips the initial callback, the user's first change is
+                    // still persisted instead of being accidentally ignored.
+                    if (initialSelectionPending && value == selected) {
+                        initialSelectionPending = false
+                        return
+                    }
+                    initialSelectionPending = false
                     if (value != selected) changed(value)
                 }
             }
@@ -1904,12 +1916,18 @@ class MainActivity : AppCompatActivity() {
         } else {
             val now = java.time.Instant.now()
             val zone = java.time.ZoneId.systemDefault()
-            val until = now.plusSeconds(economicDays * 86400L)
+            // "Today" means the remainder of the user's local calendar day, not a
+            // rolling 24-hour window that accidentally includes tomorrow's releases.
+            val until = if (economicDays == 1) {
+                java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant()
+            } else {
+                now.plusSeconds(economicDays * 86400L)
+            }
             val filtered = economicEvents.filter { event ->
                 val instant = runCatching { java.time.Instant.parse(event.timeUtc) }.getOrNull()
                 val impactOk = economicImpact == "All impact" || event.impact.equals(economicImpact, true)
                 val countryOk = economicCountry == "All countries" || eventRegionLabel(event) == economicCountry
-                instant != null && !instant.isBefore(now) && !instant.isAfter(until) && impactOk && countryOk
+                instant != null && !instant.isBefore(now) && instant.isBefore(until) && impactOk && countryOk
             }
             content.addView(text("${filtered.size} scheduled events", 12f, muted).apply {
                 setPadding(dp(2), dp(6), dp(2), dp(8))
@@ -2033,12 +2051,104 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Remind me before release")
             .setItems(choices) { _, which ->
-                val ok = EconomicAlertScheduler.schedule(this, event, minutes[which])
-                val message = if (ok) "Reminder saved on this device." else "This reminder time has already passed, or Android could not schedule it. Choose a future event and check notification/alarm permissions."
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                showEconomicCalendar()
+                pendingEconomicAlarm = event to minutes[which]
+                if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    requestPermissions(
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        REQUEST_ECONOMIC_NOTIFICATION_PERMISSION
+                    )
+                } else {
+                    scheduleEconomicAlarm(event, minutes[which])
+                }
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun scheduleEconomicAlarm(event: EconomicEvent, minutesBefore: Int) {
+        if (!EconomicAlertScheduler.notificationsEnabled(this)) {
+            showEconomicNotificationSettingsDialog()
+            return
+        }
+        val trigger = (event.epochMillis() ?: 0L) - minutesBefore.coerceAtLeast(0) * 60_000L
+        if (trigger <= System.currentTimeMillis()) {
+            pendingEconomicAlarm = null
+            Toast.makeText(this, "The selected reminder time has already passed. Choose a future event or an earlier reminder.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val saved = EconomicAlertScheduler.schedule(this, event, minutesBefore)
+        if (!saved) {
+            Toast.makeText(this, "Android could not schedule this reminder. No alarm was saved; please try again.", Toast.LENGTH_LONG).show()
+            return
+        }
+        showEconomicCalendar()
+
+        if (!EconomicAlertScheduler.preciseAlarmAllowed(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Reminder saved with possible delay")
+                .setMessage("Android accepted the reminder, but precise-alarm access is off. The operating system may deliver it late. Enable precise alarms for more reliable timing.")
+                .setPositiveButton("Enable precise alarms") { _, _ -> openEconomicExactAlarmSettings() }
+                .setNegativeButton("Keep reminder", null)
+                .show()
+        } else {
+            Toast.makeText(this, "Economic reminder saved on this device.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showEconomicNotificationSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Notifications are disabled")
+            .setMessage("Android cannot show the economic-calendar alert while notifications or the Economic calendar notification channel are disabled. Enable them to schedule this reminder reliably.")
+            .setPositiveButton("Open notification settings") { _, _ -> openEconomicNotificationSettings() }
+            .setNegativeButton("Cancel") { _, _ -> pendingEconomicAlarm = null }
+            .show()
+    }
+
+    private fun openEconomicNotificationSettings() {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                putExtra(Settings.EXTRA_CHANNEL_ID, EconomicAlertScheduler.CHANNEL_ID)
+            }
+        }
+        runCatching { startActivity(intent) }
+            .onFailure { Toast.makeText(this, "Open Candle Alert notification settings from Android Settings.", Toast.LENGTH_LONG).show() }
+    }
+
+    private fun openEconomicExactAlarmSettings() {
+        if (android.os.Build.VERSION.SDK_INT < 31) return
+        val intent = Intent(
+            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+            android.net.Uri.parse("package:$packageName")
+        )
+        runCatching { startActivity(intent) }
+            .onFailure { Toast.makeText(this, "Enable Alarms & reminders for Candle Alert in Android Settings.", Toast.LENGTH_LONG).show() }
+    }
+
+    private fun showMissedEconomicReminderIfNeeded() {
+        val missed = prefs.getStringSet(EconomicAlertScheduler.MISSED_PREFS_KEY, emptySet())?.toList().orEmpty()
+        if (missed.isEmpty()) return
+        prefs.edit().remove(EconomicAlertScheduler.MISSED_PREFS_KEY).apply()
+        val entries = missed.mapNotNull { raw -> runCatching { org.json.JSONObject(raw) }.getOrNull() }
+        if (entries.isEmpty()) return
+        val latest = entries.maxByOrNull { it.optLong("occurredAt") } ?: entries.last()
+        val title = latest.optString("title", "Economic release")
+        val country = latest.optString("country", "").takeIf { it.isNotBlank() }
+        val message = buildString {
+            append(if (entries.size == 1) "A scheduled economic reminder could not be shown because notifications were disabled." else "${entries.size} scheduled economic reminders could not be shown because notifications were disabled.")
+            append("\n\nLatest: ")
+            append(title)
+            if (country != null) append(" • ").append(country)
+            append("\n\nEnable notifications to receive future reminders.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Economic reminder missed")
+            .setMessage(message)
+            .setPositiveButton("Notification settings") { _, _ -> openEconomicNotificationSettings() }
+            .setNegativeButton("Dismiss", null)
             .show()
     }
 

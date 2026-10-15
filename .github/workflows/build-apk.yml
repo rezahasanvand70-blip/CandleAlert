@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,7 +39,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEY_ALIAS: candlealert
-        run: gradle assembleDebug --stacktrace
+        run: gradle testDebugUnitTest assembleDebug --stacktrace
       - name: Verify APK signature and print OAuth certificate fingerprint
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/candlealert-signing-key.jks
