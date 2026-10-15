@@ -180,9 +180,10 @@ object EconomicAlertScheduler {
         ) return false
         val manager = context.getSystemService(NotificationManager::class.java)
         if (!manager.areNotificationsEnabled()) return false
-        if (Build.VERSION.SDK_INT >= 26 &&
-            manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
-        ) return false
+        if (Build.VERSION.SDK_INT >= 26) {
+            val channel = manager.getNotificationChannel(CHANNEL_ID) ?: return false
+            if (channel.importance < NotificationManager.IMPORTANCE_DEFAULT || channel.sound == null) return false
+        }
         return true
     }
 
