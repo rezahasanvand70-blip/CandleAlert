@@ -47,6 +47,11 @@ class MainActivity : AppCompatActivity() {
     private var ticker: Runnable? = null
     private var settingsVisible = false
     private var settingsSubpageVisible = false
+    private var pendingEconomicAlarm: Pair<EconomicEvent, Int>? = null
+
+    companion object {
+        private const val REQUEST_ECONOMIC_NOTIFICATION_PERMISSION = 47
+    }
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
@@ -54,6 +59,36 @@ class MainActivity : AppCompatActivity() {
             settingsSubpageVisible -> showSettings()
             settingsVisible -> showHome()
             else -> super.onBackPressed()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Rebuild future alarms after returning from Android settings, a reboot,
+        // or the app having been backgrounded while exact-alarm access changed.
+        EconomicAlertScheduler.rescheduleAll(this)
+
+        val pending = pendingEconomicAlarm
+        if (pending != null && EconomicAlertScheduler.notificationsEnabled(this)) {
+            pendingEconomicAlarm = null
+            scheduleEconomicAlarm(pending.first, pending.second)
+        }
+        showMissedEconomicReminderIfNeeded()
+    }
+
+    @Deprecated("Deprecated in Android API; retained for compatibility with permission and Google sign-in flows")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_ECONOMIC_NOTIFICATION_PERMISSION) return
+        val pending = pendingEconomicAlarm
+        if (pending == null) return
+        if (grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pendingEconomicAlarm = null
+            scheduleEconomicAlarm(pending.first, pending.second)
+        } else {
+            // Keep the selected event pending so enabling notifications in Settings
+            // resumes scheduling without asking the user to select the event again.
+            showEconomicNotificationSettingsDialog()
         }
     }
 
@@ -2006,12 +2041,104 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Remind me before release")
             .setItems(choices) { _, which ->
-                val ok = EconomicAlertScheduler.schedule(this, event, minutes[which])
-                val message = if (ok) "Reminder saved on this device." else "This reminder time has already passed, or Android could not schedule it. Choose a future event and check notification/alarm permissions."
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                showEconomicCalendar()
+                pendingEconomicAlarm = event to minutes[which]
+                if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    requestPermissions(
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        REQUEST_ECONOMIC_NOTIFICATION_PERMISSION
+                    )
+                } else {
+                    scheduleEconomicAlarm(event, minutes[which])
+                }
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun scheduleEconomicAlarm(event: EconomicEvent, minutesBefore: Int) {
+        if (!EconomicAlertScheduler.notificationsEnabled(this)) {
+            showEconomicNotificationSettingsDialog()
+            return
+        }
+        val trigger = (event.epochMillis() ?: 0L) - minutesBefore.coerceAtLeast(0) * 60_000L
+        if (trigger <= System.currentTimeMillis()) {
+            pendingEconomicAlarm = null
+            Toast.makeText(this, "The selected reminder time has already passed. Choose a future event or an earlier reminder.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val saved = EconomicAlertScheduler.schedule(this, event, minutesBefore)
+        if (!saved) {
+            Toast.makeText(this, "Android could not schedule this reminder. No alarm was saved; please try again.", Toast.LENGTH_LONG).show()
+            return
+        }
+        showEconomicCalendar()
+
+        if (!EconomicAlertScheduler.preciseAlarmAllowed(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Reminder saved with possible delay")
+                .setMessage("Android accepted the reminder, but precise-alarm access is off. The operating system may deliver it late. Enable precise alarms for more reliable timing.")
+                .setPositiveButton("Enable precise alarms") { _, _ -> openEconomicExactAlarmSettings() }
+                .setNegativeButton("Keep reminder", null)
+                .show()
+        } else {
+            Toast.makeText(this, "Economic reminder saved on this device.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showEconomicNotificationSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Notifications are disabled")
+            .setMessage("Android cannot show the economic-calendar alert while notifications or the Economic calendar notification channel are disabled. Enable them to schedule this reminder reliably.")
+            .setPositiveButton("Open notification settings") { _, _ -> openEconomicNotificationSettings() }
+            .setNegativeButton("Cancel") { _, _ -> pendingEconomicAlarm = null }
+            .show()
+    }
+
+    private fun openEconomicNotificationSettings() {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                putExtra(Settings.EXTRA_CHANNEL_ID, EconomicAlertScheduler.CHANNEL_ID)
+            }
+        }
+        runCatching { startActivity(intent) }
+            .onFailure { Toast.makeText(this, "Open Candle Alert notification settings from Android Settings.", Toast.LENGTH_LONG).show() }
+    }
+
+    private fun openEconomicExactAlarmSettings() {
+        if (android.os.Build.VERSION.SDK_INT < 31) return
+        val intent = Intent(
+            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+            android.net.Uri.parse("package:$packageName")
+        )
+        runCatching { startActivity(intent) }
+            .onFailure { Toast.makeText(this, "Enable Alarms & reminders for Candle Alert in Android Settings.", Toast.LENGTH_LONG).show() }
+    }
+
+    private fun showMissedEconomicReminderIfNeeded() {
+        val missed = prefs.getStringSet(EconomicAlertScheduler.MISSED_PREFS_KEY, emptySet())?.toList().orEmpty()
+        if (missed.isEmpty()) return
+        prefs.edit().remove(EconomicAlertScheduler.MISSED_PREFS_KEY).apply()
+        val entries = missed.mapNotNull { raw -> runCatching { org.json.JSONObject(raw) }.getOrNull() }
+        if (entries.isEmpty()) return
+        val latest = entries.maxByOrNull { it.optLong("occurredAt") } ?: entries.last()
+        val title = latest.optString("title", "Economic release")
+        val country = latest.optString("country", "").takeIf { it.isNotBlank() }
+        val message = buildString {
+            append(if (entries.size == 1) "A scheduled economic reminder could not be shown because notifications were disabled." else "${entries.size} scheduled economic reminders could not be shown because notifications were disabled.")
+            append("\n\nLatest: ")
+            append(title)
+            if (country != null) append(" • ").append(country)
+            append("\n\nEnable notifications to receive future reminders.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Economic reminder missed")
+            .setMessage(message)
+            .setPositiveButton("Notification settings") { _, _ -> openEconomicNotificationSettings() }
+            .setNegativeButton("Dismiss", null)
             .show()
     }
 
