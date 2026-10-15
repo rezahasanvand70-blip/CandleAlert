@@ -91,7 +91,8 @@ object EconomicCalendarRepository {
             val normalizedTime = normalizeTime(time) ?: return@mapNotNull null
             val title = first(o, "title", "name", "event", "event_name", "report_name")
             if (title.isBlank()) return@mapNotNull null
-            val impactRaw = first(o, "impact", "importance", "impact_level").lowercase(Locale.US)
+            val impactRaw = first(o, "impact", "importance", "impact_level")
+                .lowercase(Locale.US).replace(Regex("[_-]+"), " ").replace(Regex("\\s+"), " ").trim()
             val impact = when (impactRaw) {
                 "3", "high", "red", "high impact" -> "high"
                 "2", "medium", "moderate", "orange", "medium impact" -> "medium"
