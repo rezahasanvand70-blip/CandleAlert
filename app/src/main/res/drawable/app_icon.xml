@@ -4,31 +4,36 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Keep all artwork inside Android adaptive-icon safe zone (centered 66dp area). -->
-    <path android:fillColor="#071B27" android:pathData="M54,21 A33,33 0,1 1,54 87 A33,33 0,1 1,54 21 Z" />
-    <!-- Layered mountain ridges, contained within the circular safe area. -->
-    <path android:fillColor="#17434A" android:pathData="M25,65 L37,49 L44,56 L54,39 L67,56 L74,48 L84,64 L84,75 L25,75 Z" />
-    <path android:fillColor="#0E303B" android:pathData="M23,68 L37,56 L45,63 L56,49 L68,63 L76,56 L85,68 L85,78 L23,78 Z" />
-    <path android:fillColor="#091F2B" android:pathData="M24,73 L38,65 L47,70 L57,60 L68,70 L78,64 L84,71 L84,82 L24,82 Z" />
-    <!-- Neon halo sits behind the candles and stays clear of the adaptive mask. -->
-    <path android:strokeColor="#15534F" android:strokeWidth="7" android:strokeLineCap="round"
-        android:pathData="M31,62 A24,24 0,0 1,73 47" />
-    <path android:strokeColor="#22BFA0" android:strokeWidth="3" android:strokeLineCap="round"
-        android:pathData="M31,62 A24,24 0,0 1,73 47" />
-    <path android:strokeColor="#DDE9C8" android:strokeWidth="2" android:strokeLineCap="round"
-        android:pathData="M73,47 A24,24 0,0 1,77 61" />
-    <!-- Candles rise from the mountain valley. -->
-    <path android:strokeColor="#28E0A3" android:strokeWidth="2" android:strokeLineCap="round"
-        android:pathData="M39,49 V70" />
-    <path android:fillColor="#20D99A" android:pathData="M36,54 H42 V64 H36 Z" />
-    <path android:strokeColor="#FF6661" android:strokeWidth="2" android:strokeLineCap="round"
-        android:pathData="M50,45 V71" />
-    <path android:fillColor="#FF5A58" android:pathData="M47,52 H53 V64 H47 Z" />
-    <path android:strokeColor="#44EDB4" android:strokeWidth="2" android:strokeLineCap="round"
-        android:pathData="M61,38 V63" />
-    <path android:fillColor="#25DDA2" android:pathData="M58,44 H64 V56 H58 Z" />
-    <!-- Crisp alert bell remains fully within the central safe zone. -->
-    <path android:fillColor="#F7FCF9"
-        android:pathData="M69,67 C69,62 71,59 74,57 V55.5 C74,53.8 75.2,52.5 77,52.5 C78.8,52.5 80,53.8 80,55.5 V57 C83,59 84.5,62 84.5,67 V69 H86 V72 H67 V69 H69 Z" />
-    <path android:fillColor="#D7F6E9" android:pathData="M73.5,74 H80.5 C80,76.2 78.9,77.5 77,77.5 C75.1,77.5 74,76.2 73.5,74 Z" />
+    <!-- Sketch-style launcher artwork. Canvas dimensions and adaptive safe zone unchanged. -->
+    <path android:fillColor="#FFFDF7" android:pathData="M54,21 A33,33 0,1 1,54 87 A33,33 0,1 1,54 21 Z"/>
+    <!-- Loose pencil halo -->
+    <path android:strokeColor="#9BDDA9" android:strokeWidth="2.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M25,56 C28,39 42,27 56,27 C70,27 80,37 83,49"/>
+    <path android:strokeColor="#8FD6A2" android:strokeWidth="1.2" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M27,59 C31,41 43,30 57,29 C70,29 79,38 82,50"/>
+    <path android:strokeColor="#F5C95D" android:strokeWidth="2.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M82,51 C86,63 79,76 66,81 C52,86 37,80 29,69"/>
+    <path android:strokeColor="#F7D675" android:strokeWidth="1.1" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M80,53 C84,64 77,75 65,79 C51,83 39,78 31,68"/>
+    <!-- Hand-drawn candle wicks and colored bodies -->
+    <path android:strokeColor="#263F46" android:strokeWidth="1.7" android:strokeLineCap="round" android:pathData="M39,46 L38.5,73"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1" android:strokeLineCap="round" android:pathData="M40.5,47 L40,72"/>
+    <path android:fillColor="#FF7869" android:pathData="M34,53 L43,52.5 L43,66 L34,66.5 Z"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1.2" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M34,53 L43,52.5 L43,66 L34,66.5 Z"/>
+    <path android:strokeColor="#FFB09A" android:strokeWidth="1" android:strokeLineCap="round" android:pathData="M35.5,55 L41,54.5 M35.5,58 L41,57.5 M35.5,61 L41,60.5 M35.5,64 L40,63.5"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1.7" android:strokeLineCap="round" android:pathData="M52,35 L51.5,72"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1" android:strokeLineCap="round" android:pathData="M54,36 L53.5,71"/>
+    <path android:fillColor="#36C878" android:pathData="M47,42 L58,41.5 L58,63.5 L47,64 Z"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1.2" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M47,42 L58,41.5 L58,63.5 L47,64 Z"/>
+    <path android:strokeColor="#A8F0B6" android:strokeWidth="1" android:strokeLineCap="round" android:pathData="M48.5,45 L56,44.5 M48.5,49 L56,48.5 M48.5,53 L56,52.5 M48.5,57 L56,56.5 M48.5,61 L54,60.5"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1.7" android:strokeLineCap="round" android:pathData="M65,44 L64.5,67"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1" android:strokeLineCap="round" android:pathData="M67,45 L66.5,66"/>
+    <path android:fillColor="#59D18C" android:pathData="M61,49 L70,48.5 L70,61.5 L61,62 Z"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1.2" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M61,49 L70,48.5 L70,61.5 L61,62 Z"/>
+    <path android:strokeColor="#B4F1BD" android:strokeWidth="1" android:strokeLineCap="round" android:pathData="M62.5,52 L68,51.5 M62.5,56 L68,55.5 M62.5,59 L67,58.5"/>
+    <!-- Warm, hand-sketched notification bell -->
+    <path android:fillColor="#FFD34E" android:pathData="M68,68 C68,62 70,58 74,56 L74.5,53.5 C75,51 79,51 80,54 L80,56 C84,59 85,63 85,68 L87,70 L87,72 L66,72 L66,70 Z"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1.7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M68,68 C68,62 70,58 74,56 L74.5,53.5 C75,51 79,51 80,54 L80,56 C84,59 85,63 85,68 L87,70 L87,72 L66,72 L66,70 Z"/>
+    <path android:strokeColor="#F5A34C" android:strokeWidth="1.1" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M71,64 C72,60 75,58 78,58 M70,67 C71,63 73,61 76,60"/>
+    <path android:fillColor="#F3A13F" android:pathData="M72,74 L81,74 C80,77 78,79 76.5,79 C74.5,79 73,77 72,74 Z"/>
+    <path android:strokeColor="#263F46" android:strokeWidth="1.4" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M72,74 L81,74 C80,77 78,79 76.5,79 C74.5,79 73,77 72,74 Z"/>
+    <!-- Small sketchy alert marks -->
+    <path android:strokeColor="#F5B52E" android:strokeWidth="2" android:strokeLineCap="round" android:pathData="M85,48 L88,44 M88,54 L91,53"/>
+    <path android:strokeColor="#5BC982" android:strokeWidth="1.8" android:strokeLineCap="round" android:pathData="M27,43 L24,40 M31,36 L29,33"/>
 </vector>
