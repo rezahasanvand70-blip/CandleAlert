@@ -1853,15 +1853,19 @@ class MainActivity : AppCompatActivity() {
             val spinnerOptions = if (selected in options) options else listOf(selected) + options
             spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, spinnerOptions)
             spinner.setSelection(spinnerOptions.indexOf(selected).coerceAtLeast(0))
-            var initialSelection = true
+            var initialSelectionPending = true
             spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
                     val value = spinnerOptions.getOrNull(position) ?: return
-                    if (initialSelection) {
-                        initialSelection = false
+                    // Only ignore a callback that confirms the already-selected value.
+                    // If Android skips the initial callback, the user's first change is
+                    // still persisted instead of being accidentally ignored.
+                    if (initialSelectionPending && value == selected) {
+                        initialSelectionPending = false
                         return
                     }
+                    initialSelectionPending = false
                     if (value != selected) changed(value)
                 }
             }
@@ -1912,12 +1916,18 @@ class MainActivity : AppCompatActivity() {
         } else {
             val now = java.time.Instant.now()
             val zone = java.time.ZoneId.systemDefault()
-            val until = now.plusSeconds(economicDays * 86400L)
+            // "Today" means the remainder of the user's local calendar day, not a
+            // rolling 24-hour window that accidentally includes tomorrow's releases.
+            val until = if (economicDays == 1) {
+                java.time.LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant()
+            } else {
+                now.plusSeconds(economicDays * 86400L)
+            }
             val filtered = economicEvents.filter { event ->
                 val instant = runCatching { java.time.Instant.parse(event.timeUtc) }.getOrNull()
                 val impactOk = economicImpact == "All impact" || event.impact.equals(economicImpact, true)
                 val countryOk = economicCountry == "All countries" || eventRegionLabel(event) == economicCountry
-                instant != null && !instant.isBefore(now) && !instant.isAfter(until) && impactOk && countryOk
+                instant != null && !instant.isBefore(now) && instant.isBefore(until) && impactOk && countryOk
             }
             content.addView(text("${filtered.size} scheduled events", 12f, muted).apply {
                 setPadding(dp(2), dp(6), dp(2), dp(8))
