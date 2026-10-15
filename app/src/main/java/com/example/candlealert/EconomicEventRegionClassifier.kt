@@ -37,7 +37,7 @@ object EconomicEventRegionClassifier {
                 contains("bank of japan", "japan") || token("jpy") ->
                 "🇯🇵 Japan (JPY)"
 
-            currency == "GBP" ||
+            currency == "GBP" || currencyValue.contains("£") ||
                 country in setOf("gb", "gbr", "uk", "u.k.", "united kingdom", "great britain", "britain", "england", "scotland", "wales") ||
                 contains(
                     "united kingdom", "great britain", "britain", "british", "bank of england",
