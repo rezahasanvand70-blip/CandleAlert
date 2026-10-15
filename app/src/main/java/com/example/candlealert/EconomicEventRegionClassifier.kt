@@ -28,8 +28,8 @@ object EconomicEventRegionClassifier {
 
             currency == "USD" ||
                 country in setOf("us", "usa", "u.s.", "u.s.a.", "united states", "united states of america", "america") ||
-                contains("united states", "federal reserve", "nonfarm payroll", "non-farm payroll", "us dollar") ||
-                token("usa", "usd", "fed") ->
+                contains("united states", "federal reserve", "nonfarm payroll", "non-farm payroll", "us dollar", "fomc", "fed funds rate") ||
+                token("usa", "usd", "fed", "fomc") ->
                 "🇺🇸 US Dollar (USD)"
 
             currency == "JPY" ||
