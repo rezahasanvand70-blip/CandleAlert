@@ -93,14 +93,24 @@ object EconomicCalendarRepository {
                 "1", "low", "green", "low impact" -> "low"
                 else -> impactRaw.ifBlank { "unknown" }
             }
-            val country = first(o, "country", "country_name", "region")
-            val currency = first(o, "currency", "currency_code", "iso_country_code")
+            // Keep ISO country codes separate from currency codes. The previous
+            // parser treated iso_country_code as a currency, which confused region
+            // classification whenever a feed supplied only country metadata.
+            val country = first(
+                o, "country", "country_name", "country_code", "countryCode",
+                "iso_country_code", "isoCountryCode", "region", "region_name"
+            )
+            val currency = first(
+                o, "currency", "currency_code", "currencyCode", "iso_currency_code",
+                "isoCurrencyCode", "ccy", "currency_symbol"
+            )
             val url = first(o, "url", "source_url", "link").ifBlank { "https://www.financecalendar.com/" }
-            val id = first(o, "id", "event_id", "slug").ifBlank { "${normalizedTime}_${title}_${country}" }
+            val id = first(o, "id", "event_id", "eventId", "slug")
+                .ifBlank { "${normalizedTime}_${title}_${country}_${currency}" }
             EconomicEvent(
                 id = id,
                 title = title,
-                country = country.ifBlank { currency.ifBlank { "Global / not specified" } },
+                country = country.ifBlank { "Global / not specified" },
                 currency = currency,
                 impact = impact,
                 timeUtc = normalizedTime,
