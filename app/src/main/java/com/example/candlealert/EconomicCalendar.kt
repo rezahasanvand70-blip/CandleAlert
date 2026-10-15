@@ -7,6 +7,11 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.Manifest
+import android.media.RingtoneManager
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import org.json.JSONArray
@@ -145,12 +150,50 @@ object EconomicCalendarRepository {
 }
 
 object EconomicAlertScheduler {
-    private const val PREFS_KEY = "economic_alerts"
+    const val PREFS_KEY = "economic_alerts"
+    const val CHANNEL_ID = "economic_calendar_alerts"
+    const val MISSED_PREFS_KEY = "economic_alert_missed"
+
+    fun ensureNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val manager = context.getSystemService(NotificationManager::class.java)
+            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+                manager.createNotificationChannel(
+                    NotificationChannel(CHANNEL_ID, "Economic calendar", NotificationManager.IMPORTANCE_HIGH).apply {
+                        description = "Reminders before scheduled economic releases"
+                        setSound(
+                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+                            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
+                        )
+                        enableVibration(true)
+                    }
+                )
+            }
+        }
+    }
+
+    fun notificationsEnabled(context: Context): Boolean {
+        ensureNotificationChannel(context)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return false
+        val manager = context.getSystemService(NotificationManager::class.java)
+        if (!manager.areNotificationsEnabled()) return false
+        if (Build.VERSION.SDK_INT >= 26 &&
+            manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
+        ) return false
+        return true
+    }
+
+    fun preciseAlarmAllowed(context: Context): Boolean =
+        Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
     fun schedule(context: Context, event: EconomicEvent, minutesBefore: Int): Boolean {
         val release = event.epochMillis() ?: return false
-        val triggerAt = release - minutesBefore.coerceAtLeast(0) * 60_000L
-        if (triggerAt <= System.currentTimeMillis()) return false
+        val before = minutesBefore.coerceAtLeast(0)
+        val triggerAt = release - before * 60_000L
+        if (triggerAt <= System.currentTimeMillis() || !notificationsEnabled(context)) return false
+
         val key = event.id
         val saved = JSONObject().apply {
             put("id", event.id)
@@ -159,22 +202,30 @@ object EconomicAlertScheduler {
             put("currency", event.currency)
             put("impact", event.impact)
             put("timeUtc", event.timeUtc)
-            put("minutesBefore", minutesBefore)
+            put("minutesBefore", before)
         }.toString()
         val prefs = context.getSharedPreferences("prefs", 0)
-        val alarms = prefs.getStringSet(PREFS_KEY, emptySet())?.toMutableSet() ?: mutableSetOf()
-        alarms.removeAll { runCatching { JSONObject(it).optString("id") == key }.getOrDefault(false) }
-        alarms.add(saved)
-        prefs.edit().putStringSet(PREFS_KEY, alarms).apply()
-        return setAlarm(context, key, event.title, event.country, triggerAt, minutesBefore)
+        val previous = prefs.getStringSet(PREFS_KEY, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val updated = previous.toMutableSet().apply {
+            removeAll { runCatching { JSONObject(it).optString("id") == key }.getOrDefault(false) }
+            add(saved)
+        }
+
+        // Do not persist a reminder as active unless Android accepted the PendingIntent.
+        if (!setAlarm(context, key, event.title, event.country, triggerAt, before)) return false
+        if (!prefs.edit().putStringSet(PREFS_KEY, updated).commit()) {
+            context.getSystemService(AlarmManager::class.java).cancel(pendingIntent(context, key, "", "", 0))
+            return false
+        }
+        return true
     }
 
     fun cancel(context: Context, eventId: String) {
-        val alarms = context.getSharedPreferences("prefs", 0).getStringSet(PREFS_KEY, emptySet())?.toMutableSet() ?: mutableSetOf()
+        val prefs = context.getSharedPreferences("prefs", 0)
+        val alarms = prefs.getStringSet(PREFS_KEY, emptySet())?.toMutableSet() ?: mutableSetOf()
         alarms.removeAll { runCatching { JSONObject(it).optString("id") == eventId }.getOrDefault(false) }
-        context.getSharedPreferences("prefs", 0).edit().putStringSet(PREFS_KEY, alarms).apply()
-        val pi = pendingIntent(context, eventId, "", "", 0)
-        context.getSystemService(AlarmManager::class.java).cancel(pi)
+        prefs.edit().putStringSet(PREFS_KEY, alarms).apply()
+        context.getSystemService(AlarmManager::class.java).cancel(pendingIntent(context, eventId, "", "", 0))
     }
 
     fun hasAlarm(context: Context, eventId: String): Boolean {
@@ -193,10 +244,13 @@ object EconomicAlertScheduler {
                 val title = o.optString("title")
                 val country = o.optString("country")
                 val time = Instant.parse(o.optString("timeUtc")).toEpochMilli()
-                val before = o.optInt("minutesBefore")
+                val before = o.optInt("minutesBefore").coerceAtLeast(0)
                 val trigger = time - before * 60_000L
-                if (trigger > System.currentTimeMillis()) {
-                    if (setAlarm(context, id, title, country, trigger, before)) keep.add(raw)
+                if (id.isNotBlank() && trigger > System.currentTimeMillis()) {
+                    // Keep future reminders recorded even if this reschedule attempt fails;
+                    // a later app resume, reboot, or permission change can retry them.
+                    keep.add(raw)
+                    setAlarm(context, id, title, country, trigger, before)
                 }
             }
         }
@@ -208,55 +262,92 @@ object EconomicAlertScheduler {
             val alarmManager = context.getSystemService(AlarmManager::class.java)
             val pi = pendingIntent(context, id, title, country, before)
             if (Build.VERSION.SDK_INT >= 31 && !alarmManager.canScheduleExactAlarms()) {
+                // Inexact alarms are a fallback, but the UI warns the user that Android
+                // may delay them until precise-alarm access is enabled.
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
             } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
+                try {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
+                } catch (_: SecurityException) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
+                }
             }
             true
         }.getOrDefault(false)
     }
 
     private fun pendingIntent(context: Context, id: String, title: String, country: String, before: Int): PendingIntent {
-        val requestCode = id.hashCode()
         val intent = Intent(context, EconomicAlertReceiver::class.java).apply {
+            // PendingIntent identity includes data, avoiding rare hash-code collisions
+            // between distinct event IDs that would otherwise replace one another.
+            data = Uri.parse("candlealert://economic-alert/${Uri.encode(id)}")
             putExtra("event_id", id)
             putExtra("event_title", title)
             putExtra("event_country", country)
             putExtra("minutes_before", before)
         }
-        return PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return PendingIntent.getBroadcast(
+            context,
+            id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 }
-
 class EconomicAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
+        val id = intent?.getStringExtra("event_id").orEmpty()
         val title = intent?.getStringExtra("event_title").orEmpty().ifBlank { "Economic release" }
         val country = intent?.getStringExtra("event_country").orEmpty()
         val before = intent?.getIntExtra("minutes_before", 0) ?: 0
         val manager = context.getSystemService(NotificationManager::class.java)
-        val channelId = "economic_calendar_alerts"
-        if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(channelId, "Economic calendar", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Reminders before scheduled economic releases"
-            })
+
+        EconomicAlertScheduler.ensureNotificationChannel(context)
+        if (!EconomicAlertScheduler.notificationsEnabled(context)) {
+            // Do not silently lose the user's reminder: report it the next time the app
+            // opens and direct the user to notification settings.
+            val missed = context.getSharedPreferences("prefs", 0)
+                .getStringSet(EconomicAlertScheduler.MISSED_PREFS_KEY, emptySet())?.toMutableSet() ?: mutableSetOf()
+            missed.add(JSONObject().apply {
+                put("id", id)
+                put("title", title)
+                put("country", country)
+                put("minutesBefore", before)
+                put("occurredAt", System.currentTimeMillis())
+            }.toString())
+            context.getSharedPreferences("prefs", 0).edit()
+                .putStringSet(EconomicAlertScheduler.MISSED_PREFS_KEY, missed).apply()
+            removeStoredAlarm(context, id)
+            return
         }
-        val open = PendingIntent.getActivity(context, 8101, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+        val open = PendingIntent.getActivity(
+            context, 8101, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val lead = if (before == 0) "Event is scheduled now" else "Event starts in $before min"
-        val notification = NotificationCompat.Builder(context, channelId)
+        val detail = listOf(country, lead).filter { it.isNotBlank() }.joinToString(" • ")
+        val notification = NotificationCompat.Builder(context, EconomicAlertScheduler.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
-            .setContentText(listOf(country, lead).filter { it.isNotBlank() }.joinToString(" • "))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(country, lead).filter { it.isNotBlank() }.joinToString(" • ")))
+            .setContentText(detail)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
             .setContentIntent(open)
             .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
-        if (Build.VERSION.SDK_INT < 33 || manager.areNotificationsEnabled()) manager.notify(intent?.getStringExtra("event_id").orEmpty().hashCode(), notification)
-        val id = intent?.getStringExtra("event_id").orEmpty()
-        if (id.isNotBlank()) {
-            val alarms = context.getSharedPreferences("prefs", 0).getStringSet("economic_alerts", emptySet())?.toMutableSet() ?: mutableSetOf()
-            alarms.removeAll { runCatching { JSONObject(it).optString("id") == id }.getOrDefault(false) }
-            context.getSharedPreferences("prefs", 0).edit().putStringSet("economic_alerts", alarms).apply()
-        }
+
+        manager.notify(id.hashCode(), notification)
+        removeStoredAlarm(context, id)
+    }
+
+    private fun removeStoredAlarm(context: Context, id: String) {
+        if (id.isBlank()) return
+        val prefs = context.getSharedPreferences("prefs", 0)
+        val alarms = prefs.getStringSet(EconomicAlertScheduler.PREFS_KEY, emptySet())?.toMutableSet() ?: mutableSetOf()
+        alarms.removeAll { runCatching { JSONObject(it).optString("id") == id }.getOrDefault(false) }
+        prefs.edit().putStringSet(EconomicAlertScheduler.PREFS_KEY, alarms).apply()
     }
 }
