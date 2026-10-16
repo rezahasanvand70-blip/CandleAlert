@@ -20,44 +20,19 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Configure stable Android signing key
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: candlealert
-        run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
-            echo "::error::Add repository Actions secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, and ANDROID_KEY_PASSWORD before building."
-            exit 1
-          fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/candlealert-signing-key.jks"
-          echo "Stable signing key configured."
-      - name: Build APK with stable signing key
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/candlealert-signing-key.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: candlealert
+      - name: Build debug APK
         run: gradle testDebugUnitTest assembleDebug --stacktrace
-      - name: Verify APK signature and print OAuth certificate fingerprint
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/candlealert-signing-key.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: candlealert
+      - name: Verify APK signature
         run: |
-          echo "=== SIGNING REPORT ==="
-          gradle signingReport
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
           if [ -z "$APKSIGNER" ]; then
             echo "::error::Android apksigner tool was not found."
             exit 1
           fi
-          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
+          "$APKSIGNER" verify --verbose app/build/outputs/apk/debug/app-debug.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ForexCandleAlert-debug-apk
+          name: CandleAlert-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
