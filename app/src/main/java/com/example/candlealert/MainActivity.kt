@@ -74,6 +74,28 @@ class MainActivity : AppCompatActivity() {
             scheduleEconomicAlarm(pending.first, pending.second)
         }
         showMissedEconomicReminderIfNeeded()
+        TradingSessions.refreshFromSource(this) { notice ->
+            if (!notice.isNullOrBlank() && !isFinishing) {
+                AlertDialog.Builder(this)
+                    .setTitle("Forex session schedule updated")
+                    .setMessage(notice)
+                    .setPositiveButton("OK", null)
+                    .setNeutralButton("Open source") { _, _ ->
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.babypips.com/tools/forex-market-hours"))) }
+                    }
+                    .show()
+            }
+        }
+        TradingSessions.consumePendingNotice(this)?.let { notice ->
+            if (!isFinishing) AlertDialog.Builder(this)
+                .setTitle("Forex session schedule updated")
+                .setMessage(notice)
+                .setPositiveButton("OK", null)
+                .setNeutralButton("Open source") { _, _ ->
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.babypips.com/tools/forex-market-hours"))) }
+                }
+                .show()
+        }
     }
 
     @Deprecated("Deprecated in Android API; retained for compatibility with permission and Google sign-in flows")
