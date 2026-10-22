@@ -41,6 +41,13 @@ object TradingSessions {
     fun refreshFromSource(context: Context, callback: ((String?) -> Unit)? = null) {
         val app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        // Restore the last validated online schedule before deciding whether a network check is due.
+        synchronized(sessions) {
+            sessions.forEach { session ->
+                session.startHour = prefs.getInt("session_${session.name}_start", session.startHour)
+                session.endHour = prefs.getInt("session_${session.name}_end", session.endHour)
+            }
+        }
         if (System.currentTimeMillis() - prefs.getLong(CHECKED_AT, 0L) < CHECK_INTERVAL_MS) {
             callback?.invoke(null)
             return
@@ -87,7 +94,7 @@ object TradingSessions {
                 if (changed.isNotEmpty()) {
                     notice = "برنامهٔ ساعت سشن‌ها از منبع BabyPips به‌روزرسانی شد.\n\n" +
                         changed.joinToString("\n") + "\n\nمنبع: BabyPips Forex Market Hours"
-                    edit.putString(NOTICE_PENDING, notice)
+                    if (callback == null) edit.putString(NOTICE_PENDING, notice)
                 }
                 edit.apply()
             } catch (_: Exception) {
